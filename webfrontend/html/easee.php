@@ -67,6 +67,7 @@ $do_id = array(
 	"config",
 	"circuits",
 	"post_dynamicCurrent",
+	"post_dynamicPower",
 	"equalizer",			 			 
     "state",
     "start_charging",
@@ -232,10 +233,12 @@ switch ($do) {
     case "state":
         $url  = '/api/chargers/' . $id . '/state';
         $data = get_req($url_base, $url, $token['accessToken']);
-		check_data($data, $url, $file_log_e);		
-		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
-		exit;
+        check_data($data, $url, $file_log_e);	
+        $data[ 'sentAtTimeLox' ]= epoch2lox();
+        $data[ 'sentAtTimeISO' ]= currtime();
+        if (array_key_exists('status',$data)) {
+		    echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		    exit;
 		}		
 		$data=change_booleans_to_numbers($data);
 		if ($config['send_html'] == 1) {
@@ -408,10 +411,35 @@ switch ($do) {
 		print_r($data);
 		break;		
 
-
-		
-		
-		
+    case "post_dynamicPower":
+		$url  = '/api/chargers/' . $id . '/site';
+		$data_tmp = get_req($url_base, $url, $token['accessToken']);
+		$cid = $data_tmp['circuits'][0]['id'];
+		$sid = $data_tmp['circuits'][0]['siteId'];
+        $url  = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
+        // input value is power in kW
+        if ($value < 4.14) {
+            // charging with one phase only - limited to 16A
+            $phase1 = min($value/(230/1000), 16);
+            $phase2 = 0;
+            $phase3 = 0;
+        } else {
+            // three phases - minimum is 6A (=4.14 kW)
+            $phase1 = $value/(230*3/1000);
+            $phase2 = $phase1;
+            $phase3 = $phase1;
+        }
+	$postdata = array(
+		"phase1" => $phase1,
+		"phase2" => $phase2,
+		"phase3" => $phase3,
+		"timeToLive" => 14400
+        );
+	$url      = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
+        $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
+        check_data($data, $url, $file_log_e);	
+	print_r($data);
+	break;	
 		
     case "lock_state":
         $url      = '/api/chargers/' . $id . '/commands/lock_state';
