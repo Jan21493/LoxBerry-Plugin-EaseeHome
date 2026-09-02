@@ -6,14 +6,14 @@ error_reporting(0);
 set_time_limit(15);
 
 //CONFIG
-$url_base    = 'https://api.easee.cloud';
+$url_base    = 'https://api.easee.com';
 $file_token  = $lbpconfigdir.'/easee_token.ini';
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $file_log_e	 = $lbplogdir.'/easee-error.log';
 $file_log_i	 = $lbplogdir.'/easee-info.log';
 //---------------------------------------------------------------------------------------------------
 $do          = ($_GET["do"]);
-$id          = ($_GET["id"]);
+$chargerId   = ($_GET["id"]);
 $type        = ($_GET["type"]);
 $value       = ($_GET["value"]);
 //---------------------------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ $settings_type = array(
 	"dynamicCircuitCurrent"
 );
 
-if (in_array("$do", $do_id)) { if (empty($id)) { echo '!! id is missing !!'; exit; }}
+if (in_array("$do", $do_id)) { if (empty($chargerId)) { echo '!! id is missing !!'; exit; }}
 if ($do == 'post_settings') { if (!in_array("$type", $settings_type)) { echo '!! type is missing !!'; exit; }}
 if (in_array("$do", $do_value)) { if (empty($value)) { echo '!! value is missing !!'; exit; }}
 
@@ -130,13 +130,13 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }		
         break;
     case "chargers":
@@ -152,17 +152,17 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }		
         break;
     case "config":
-        $url  = '/api/chargers/' . $id . '/config';
+        $url  = '/api/chargers/' . $chargerId . '/config';
         $data = get_req($url_base, $url, $token['accessToken']);
 		check_data($data, $url, $file_log_e);
 		if (array_key_exists('status',$data)) {
@@ -174,19 +174,19 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
 		if ($config['send_mqtt'] == 1) {
-           $res_mqtt=send_mqtt($id, $data);
+           $res_mqtt=send_mqtt($chargerId, $data);
         }
         if ($config['send_json'] == 1) {
-            $res_json=send_json($id, $data);
+            $res_json=send_json($chargerId, $data);
 			echo $res_json;
         }
 	
         break;
     case "equalizer":
-            $url  = '/api/equalizers/' . $id . '/state';
+            $url  = '/api/equalizers/' . $chargerId . '/state';
             $data = get_req($url_base, $url, $token['accessToken']);
             check_data($data, $url, $file_log_e);
             if (array_key_exists('status',$data)) {
@@ -198,18 +198,18 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
 		if ($config['send_mqtt'] == 1) {
-           $res_mqtt=send_mqtt($id, $data);
+           $res_mqtt=send_mqtt($chargerId, $data);
         }
         if ($config['send_json'] == 1) {
-            $res_json=send_json($id, $data);
+            $res_json=send_json($chargerId, $data);
 			echo $res_json;
         }  
         break;
     case "site":
-        $url  = '/api/chargers/' . $id . '/site';
+        $url  = '/api/chargers/' . $chargerId . '/site';
         $data = get_req($url_base, $url, $token['accessToken']);
 		check_data($data, $url, $file_log_e);
 		if (array_key_exists('status',$data)) {
@@ -221,18 +221,59 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }		
         break;	
     case "state":
-        $url  = '/api/chargers/' . $id . '/state';
-        $data = get_req($url_base, $url, $token['accessToken']);
+        // Fetch the following Charger Observation Ids, see https://developer.easee.com/docs/charger-observation-ids
+        // Map observation ID => old field name
+        $idToFieldMap = [
+            31  => 'isEnabled',           // whether the charger is enabled
+            103 => 'cableLocked',         // lock status
+            109 => 'chargerOpMode',       // operational mode of the charger
+            120 => 'totalPower',          // Total power (kW)
+            121 => 'sessionEnergy',       // session accumulated energy (kWh)
+            122 => 'energyPerHour',       // accumulated energy per hour
+            124 => 'lifetimeEnergy',      // accumulated energy in the lifetime of the charger (kWh)
+            250 => 'isOnline'             // indicates if the charger is 'connected to cloud'
+        ];
+
+        $url  = '/state/' . $chargerId . '/observations?ids=31,103,109,120,121,122,124,250';
+        $apiResponse = get_req($url_base, $url, $token['accessToken']);
+
+        $data = [];
+        if (!isset($apiResponse['observations']) || !is_array($apiResponse['observations'])) {
+            echo 'Somthing went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
+            exit;
+        }
+
+        foreach ($apiResponse['observations'] as $obs) {
+            if (!isset($obs['id']) || !array_key_exists('value', $obs)) {
+                continue;
+            }
+
+            $id = (int)$obs['id'];
+
+            // Onlymap known IDs, because we don't know how to handle unknown ones
+            if (!isset($idToFieldMap[$id])) {
+                continue;
+            }
+
+            $fieldName = $idToFieldMap[$id];
+            $data[$fieldName] = $obs['value'];
+            if ($obs['timestamp']) {
+                if (!isset($data['latestPulse']) || $obs['timestamp'] > $data['latestPulse']) {
+                    $data['latestPulse'] = $obs['timestamp'];
+                }
+            }
+        }
+
         check_data($data, $url, $file_log_e);	
         $data[ 'sentAtTimeLox' ]= epoch2lox();
         $data[ 'sentAtTimeISO' ]= currtime();
@@ -245,21 +286,21 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }
 		if ($data[chargerOpMode] == 3){	
-		$url  = '/api/chargers/' . $id . '/commands/poll_all';
-        $data = get_req($url_base, $url, $token['accessToken']);
+            $url  = '/api/chargers/' . $chargerId . '/commands/poll_all';
+            $data = get_req($url_base, $url, $token['accessToken']);
 		}
         break;	
     case "circuits":
-		$url  = '/api/chargers/' . $id . '/site';
+		$url  = '/api/chargers/' . $chargerId . '/site';
 		$data_tmp = get_req($url_base, $url, $token['accessToken']);
 		$cid = $data_tmp['circuits'][0]['id'];
 		$sid = $data_tmp['circuits'][0]['siteId'];
@@ -275,24 +316,24 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }
 		if ($data[chargerOpMode] == 3){	
-		$url  = '/api/chargers/' . $id . '/commands/poll_all';
+		$url  = '/api/chargers/' . $chargerId . '/commands/poll_all';
         $data = get_req($url_base, $url, $token['accessToken']);
 		}
         break;		
     case "latest":
-        $url  = '/api/chargers/' . $id . '/sessions/latest';
+        $url  = '/api/chargers/' . $chargerId . '/sessions/latest';
         $data = get_req($url_base, $url, $token['accessToken']);
 		if (array_key_exists('status',$data) && $data['status'] == 404) {
-			$data = array(	'chargerId' => $id,
+			$data = array(	'chargerId' => $chargerId,
 							'sessionEnergy' => '0',
 							'sessionStart' => '0',
 							'sessionEnd' => '0',
@@ -314,20 +355,20 @@ switch ($do) {
             print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }		
         break;
     case "ongoing":
-        $url  = '/api/chargers/' . $id . '/sessions/ongoing';
+        $url  = '/api/chargers/' . $chargerId . '/sessions/ongoing';
         $data = get_req($url_base, $url, $token['accessToken']);
 		if (array_key_exists('status',$data) && $data['status'] == 404) {
-			$data = array(	'chargerId' => $id,
+			$data = array(	'chargerId' => $chargerId,
 							'sessionEnergy' => '0',
 							'sessionStart' => '0',
 							'sessionEnd' => '0',
@@ -349,39 +390,39 @@ switch ($do) {
 			print_r($data);
         }
         if ($config['send_udp'] == 1) {
-            send_udp($id, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
+            send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
         if ($config['send_json'] == 1) {
-            send_json($id, $data);
+            send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($id, $data);
+            send_mqtt($chargerId, $data);
         }		
         break;
 		
     //POST (Set new settings)
     case "start_charging":
-        $url  = '/api/chargers/' . $id . '/commands/start_charging';
+        $url  = '/api/chargers/' . $chargerId . '/commands/start_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
 		check_data($data, $url, $file_log_e);	        
         break;
     case "stop_charging":
-        $url  = '/api/chargers/' . $id . '/commands/stop_charging';
+        $url  = '/api/chargers/' . $chargerId . '/commands/stop_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
         break;
     case "pause_charging":
-        $url  = '/api/chargers/' . $id . '/commands/pause_charging';
+        $url  = '/api/chargers/' . $chargerId . '/commands/pause_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
         break;
     case "resume_charging":
-        $url  = '/api/chargers/' . $id . '/commands/resume_charging';
+        $url  = '/api/chargers/' . $chargerId . '/commands/resume_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
         break;
     case "post_settings":
-        $url      = '/api/chargers/' . $id . '/settings';
+        $url      = '/api/chargers/' . $chargerId . '/settings';
         $postdata = array(
             $type => $value
         );
@@ -393,11 +434,10 @@ switch ($do) {
 		
     case "post_dynamicCurrent":
         
-		$url  = '/api/chargers/' . $id . '/site';
+		$url  = '/api/chargers/' . $chargerId . '/site';
 		$data_tmp = get_req($url_base, $url, $token['accessToken']);
 		$cid = $data_tmp['circuits'][0]['id'];
 		$sid = $data_tmp['circuits'][0]['siteId'];
-        $url  = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
 		$value = explode ( ',', $value);
 		$postdata = array(
 			"phase1" => $value[0],
@@ -412,11 +452,10 @@ switch ($do) {
 		break;		
 
     case "post_dynamicPower":
-		$url  = '/api/chargers/' . $id . '/site';
+		$url  = '/api/chargers/' . $chargerId . '/site';
 		$data_tmp = get_req($url_base, $url, $token['accessToken']);
 		$cid = $data_tmp['circuits'][0]['id'];
 		$sid = $data_tmp['circuits'][0]['siteId'];
-        $url  = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
         // input value is power in kW
         if ($value < 4.14) {
             // charging with one phase only - limited to 16A
@@ -442,7 +481,7 @@ switch ($do) {
 	break;	
 		
     case "lock_state":
-        $url      = '/api/chargers/' . $id . '/commands/lock_state';
+        $url      = '/api/chargers/' . $chargerId . '/commands/lock_state';
         $postdata = array(
             'state' => $value
         );
@@ -450,7 +489,7 @@ switch ($do) {
         check_data($data, $url, $file_log_e);	
         break;
     case "post_lock_state":
-        $url      = '/api/chargers/' . $id . '/commands/lock_state';
+        $url      = '/api/chargers/' . $chargerId . '/commands/lock_state';
         $postdata = array(
             'state' => $value
         );
@@ -458,32 +497,32 @@ switch ($do) {
         check_data($data, $url, $file_log_e);	
         break;		
     case "override_schedule":
-        $url  = '/api/chargers/' . $id . '/commands/override_schedule';
+        $url  = '/api/chargers/' . $chargerId . '/commands/override_schedule';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
         break;
     case "reboot":
-        $url  = '/api/chargers/' . $id . '/commands/reboot';
+        $url  = '/api/chargers/' . $chargerId . '/commands/reboot';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
         break;
     case "force_reboot":
-        $url  = '/api/chargers/' . $id . '/commands/force_reboot';
+        $url  = '/api/chargers/' . $chargerId . '/commands/force_reboot';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
         break;
     case "update_firmware":
-        $url  = '/api/chargers/' . $id . '/commands/update_firmware';
+        $url  = '/api/chargers/' . $chargerId . '/commands/update_firmware';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	;
         break;		
     case "poll_lifetimeenergy":
-        $url  = '/api/chargers/' . $id . '/commands/poll_lifetimeenergy';
+        $url  = '/api/chargers/' . $chargerId . '/commands/poll_lifetimeenergy';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	;
 		break;	
     case "poll_all":
-        $url  = '/api/chargers/' . $id . '/commands/poll_all';
+        $url  = '/api/chargers/' . $chargerId . '/commands/poll_all';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);
 		break;
