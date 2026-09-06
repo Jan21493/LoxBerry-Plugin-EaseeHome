@@ -267,9 +267,11 @@ switch ($do) {
         } elseif (strtolower($cfgObsIds) === 'all') {
             $requestedIds = array_keys($idToFieldMap);
         } else {
-            $requestedIds = array_values(array_filter(array_map('intval', explode(',', $cfgObsIds))));
+            $parts = preg_split('/\s*,\s*/', $cfgObsIds, -1, PREG_SPLIT_NO_EMPTY);
+            $requestedIds = array_values(array_unique(array_filter(array_map('intval', $parts), function ($id) use ($idToFieldMap) {
+                return $id > 0 && isset($idToFieldMap[$id]);
+            })));
             if (empty($requestedIds)) { $requestedIds = $defaultObsIds; }
-        }
         $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
         $apiResponse = get_req($url_base, $url, $token['accessToken']);
 
