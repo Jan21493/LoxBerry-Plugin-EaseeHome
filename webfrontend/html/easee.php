@@ -234,24 +234,60 @@ switch ($do) {
         // Fetch the following Charger Observation Ids, see https://developer.easee.com/docs/charger-observation-ids
         // Complete observation ID => former /state field-name lookup table.
         $idToFieldMap = [
-            31 => 'isEnabled', 102 => 'smartCharging', 103 => 'cableLocked', 109 => 'chargerOpMode',
-            120 => 'totalPower', 121 => 'sessionEnergy', 122 => 'energyPerHour', 124 => 'lifetimeEnergy',
-            132 => 'wiFiRSSI', 130 => 'cellRSSI', 136 => 'localRSSI', 110 => 'outputPhase',
-            111 => 'dynamicCircuitCurrentP1', 112 => 'dynamicCircuitCurrentP2', 113 => 'dynamicCircuitCurrentP3',
-            80 => 'chargerFirmware', 131 => 'chargerRAT', 30 => 'lockCablePermanently',
-            182 => 'inCurrentT2', 183 => 'inCurrentT3', 184 => 'inCurrentT4', 185 => 'inCurrentT5',
-            114 => 'outputCurrent',
-            190 => 'inVoltageT1T2', 191 => 'inVoltageT1T3', 192 => 'inVoltageT1T4', 193 => 'inVoltageT1T5',
-            194 => 'inVoltageT2T3', 195 => 'inVoltageT2T4', 196 => 'inVoltageT2T5',
-            197 => 'inVoltageT3T4', 198 => 'inVoltageT3T5', 199 => 'inVoltageT4T5',
-            46 => 'ledMode', 104 => 'cableRating', 48 => 'dynamicChargerCurrent', 47 => 'maxChargerCurrent',
-            70 => 'circuitTotalAllocatedPhaseConductorCurrentL1', 71 => 'circuitTotalAllocatedPhaseConductorCurrentL2',
-            72 => 'circuitTotalAllocatedPhaseConductorCurrentL3',
-            73 => 'circuitTotalPhaseConductorCurrentL1', 74 => 'circuitTotalPhaseConductorCurrentL2',
-            75 => 'circuitTotalPhaseConductorCurrentL3', 96 => 'reasonForNoCurrent',
-            50 => 'offlineMaxCircuitCurrentP1', 51 => 'offlineMaxCircuitCurrentP2', 52 => 'offlineMaxCircuitCurrentP3',
-            119 => 'errorCode', 230 => 'eqAvailableCurrentP1', 231 => 'eqAvailableCurrentP2', 232 => 'eqAvailableCurrentP3',
-            115 => 'deratedCurrent', 116 => 'deratingActive', 250 => 'isOnline'
+            31 => 'isEnabled', // Set true to enable charger, false disables charger.
+            102 => 'smartCharging', // Smart charging state enabled by capacitive touch button.
+            103 => 'cableLocked', // Cable lock state.
+            109 => 'chargerOpMode', // Charger operation mode according to charger mode table.
+            120 => 'totalPower', // Total power.
+            121 => 'sessionEnergy', // Session accumulated energy.
+            122 => 'energyPerHour', // Accumulated energy per hour.
+            124 => 'lifetimeEnergy', // Accumulated energy in the lifetime of the charger.
+            132 => 'wiFiRSSI', // WiFi signal strength.
+            130 => 'cellRSSI', // Cellular signal strength.
+            136 => 'localRSSI', // Local radio signal strength.
+            110 => 'outputPhase', // Active output phase(s) to EV according to output phase type table.
+            111 => 'dynamicCircuitCurrentP1', // Dynamically set circuit maximum current for phase 1.
+            112 => 'dynamicCircuitCurrentP2', // Dynamically set circuit maximum current for phase 2.
+            113 => 'dynamicCircuitCurrentP3', // Dynamically set circuit maximum current for phase 3.
+            80 => 'chargerFirmware', // Embedded software package release id.
+            131 => 'chargerRAT', // Radio access technology in use: 0 = cellular, 1 = wifi.
+            30 => 'lockCablePermanently', // Lock type 2 cable permanently.
+            182 => 'inCurrentT2', // Calculated current RMS for input T2.
+            183 => 'inCurrentT3', // Current RMS for input T3.
+            184 => 'inCurrentT4', // Current RMS for input T4.
+            185 => 'inCurrentT5', // Current RMS for input T5.
+            114 => 'outputCurrent', // Available current signaled to car with pilot tone.
+            190 => 'inVoltageT1T2', // Input voltage RMS between T1 and T2.
+            191 => 'inVoltageT1T3', // Input voltage RMS between T1 and T3.
+            192 => 'inVoltageT1T4', // Input voltage RMS between T1 and T4.
+            193 => 'inVoltageT1T5', // Input voltage RMS between T1 and T5.
+            194 => 'inVoltageT2T3', // Input voltage RMS between T2 and T3.
+            195 => 'inVoltageT2T4', // Input voltage RMS between T2 and T4.
+            196 => 'inVoltageT2T5', // Input voltage RMS between T2 and T5.
+            197 => 'inVoltageT3T4', // Input voltage RMS between T3 and T4.
+            198 => 'inVoltageT3T5', // Input voltage RMS between T3 and T5.
+            199 => 'inVoltageT4T5', // Input voltage RMS between T4 and T5.
+            46 => 'ledMode', // Charger LED mode.
+            104 => 'cableRating', // Cable rating read.
+            48 => 'dynamicChargerCurrent', // Max current this charger is allowed to offer to car. Volatile.
+            47 => 'maxChargerCurrent', // Max current this charger is allowed to offer to car. Non volatile.
+            70 => 'circuitTotalAllocatedPhaseConductorCurrentL1', // Total current allocated to L1 by all chargers on the circuit. Sent in by master only.
+            71 => 'circuitTotalAllocatedPhaseConductorCurrentL2', // Total current allocated to L2 by all chargers on the circuit. Sent in by master only.
+            72 => 'circuitTotalAllocatedPhaseConductorCurrentL3', // Total current allocated to L3 by all chargers on the circuit. Sent in by master only.
+            73 => 'circuitTotalPhaseConductorCurrentL1', // Total current in L1 (sum of all chargers on the circuit). Sent in by master only.
+            74 => 'circuitTotalPhaseConductorCurrentL2', // Total current in L2 (sum of all chargers on the circuit). Sent in by master only.
+            75 => 'circuitTotalPhaseConductorCurrentL3', // Total current in L3 (sum of all chargers on the circuit). Sent in by master only.
+            96 => 'reasonForNoCurrent', // Enum describing why a charger with a car connected is not offering current to the car.
+            50 => 'offlineMaxCircuitCurrentP1', // Maximum circuit current P1 when offline.
+            51 => 'offlineMaxCircuitCurrentP2', // Maximum circuit current P2 when offline.
+            52 => 'offlineMaxCircuitCurrentP3', // Maximum circuit current P3 when offline.
+            119 => 'errorCode', // Error code according to error code table.
+            230 => 'eqAvailableCurrentP1', // Available current for charging on P1 according to Equalizer.
+            231 => 'eqAvailableCurrentP2', // Available current for charging on P2 according to Equalizer.
+            232 => 'eqAvailableCurrentP3', // Available current for charging on P3 according to Equalizer.
+            115 => 'deratedCurrent', // Available current after derating.
+            116 => 'deratingActive', // Available current is limited by the charger due to high temperature.
+            250 => 'connectedToCloud', // Device is connected to AWS.
         ];
 
         // Which observation IDs to request is configurable via the easee_config.ini
@@ -272,6 +308,7 @@ switch ($do) {
                 return $id > 0 && isset($idToFieldMap[$id]);
             })));
             if (empty($requestedIds)) { $requestedIds = $defaultObsIds; }
+        }
         $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
         $apiResponse = get_req($url_base, $url, $token['accessToken']);
 
@@ -307,10 +344,10 @@ switch ($do) {
         }
 
         check_data($data, $url, $file_log_e);	
-        // connectedToCloud has no own observation; it equals the cloud-connection state (id 250 -> isOnline).
+        // isOnline is kept for compatibility and mirrors connectedToCloud (observation id 250).
         // Note: the old /state fields 'voltage', 'wiFiAPEnabled', 'fatalErrorCode' and 'errors' have no
         // Observations equivalent and are intentionally NOT fabricated here.
-        if (isset($data['isOnline'])) { $data['connectedToCloud'] = $data['isOnline']; }
+        if (isset($data['connectedToCloud'])) { $data['isOnline'] = $data['connectedToCloud']; }
         $data[ 'sentAtTimeLox' ]= epoch2lox();
         $data[ 'sentAtTimeISO' ]= currtime();
         if (array_key_exists('status',$data)) {
