@@ -275,8 +275,8 @@ switch ($do) {
         $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
         $apiResponse = get_req($url_base, $url, $token['accessToken']);
 
-        // Pre-initialise every mapped field so the response always contains the
-        // full set (parity with the old /state, which always returned every field);
+        // Pre-initialise every requested field so the response always contains the
+        // requested set (avoids stale values when an observation is omitted);
         // present observations overwrite these defaults below.
         $data = [];
         foreach ($requestedIds as $reqId) { if (isset($idToFieldMap[$reqId])) { $data[$idToFieldMap[$reqId]] = 0; } }
