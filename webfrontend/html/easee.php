@@ -232,22 +232,54 @@ switch ($do) {
         break;	
     case "state":
         // Fetch the following Charger Observation Ids, see https://developer.easee.com/docs/charger-observation-ids
-        // Map observation ID => old field name
+        // Complete observation ID => former /state field-name lookup table.
         $idToFieldMap = [
-            31  => 'isEnabled',           // whether the charger is enabled
-            103 => 'cableLocked',         // lock status
-            109 => 'chargerOpMode',       // operational mode of the charger
-            120 => 'totalPower',          // Total power (kW)
-            121 => 'sessionEnergy',       // session accumulated energy (kWh)
-            122 => 'energyPerHour',       // accumulated energy per hour
-            124 => 'lifetimeEnergy',      // accumulated energy in the lifetime of the charger (kWh)
-            250 => 'isOnline'             // indicates if the charger is 'connected to cloud'
+            31 => 'isEnabled', 102 => 'smartCharging', 103 => 'cableLocked', 109 => 'chargerOpMode',
+            120 => 'totalPower', 121 => 'sessionEnergy', 122 => 'energyPerHour', 124 => 'lifetimeEnergy',
+            132 => 'wiFiRSSI', 130 => 'cellRSSI', 136 => 'localRSSI', 110 => 'outputPhase',
+            111 => 'dynamicCircuitCurrentP1', 112 => 'dynamicCircuitCurrentP2', 113 => 'dynamicCircuitCurrentP3',
+            80 => 'chargerFirmware', 131 => 'chargerRAT', 30 => 'lockCablePermanently',
+            182 => 'inCurrentT2', 183 => 'inCurrentT3', 184 => 'inCurrentT4', 185 => 'inCurrentT5',
+            114 => 'outputCurrent',
+            190 => 'inVoltageT1T2', 191 => 'inVoltageT1T3', 192 => 'inVoltageT1T4', 193 => 'inVoltageT1T5',
+            194 => 'inVoltageT2T3', 195 => 'inVoltageT2T4', 196 => 'inVoltageT2T5',
+            197 => 'inVoltageT3T4', 198 => 'inVoltageT3T5', 199 => 'inVoltageT4T5',
+            46 => 'ledMode', 104 => 'cableRating', 48 => 'dynamicChargerCurrent', 47 => 'maxChargerCurrent',
+            70 => 'circuitTotalAllocatedPhaseConductorCurrentL1', 71 => 'circuitTotalAllocatedPhaseConductorCurrentL2',
+            72 => 'circuitTotalAllocatedPhaseConductorCurrentL3',
+            73 => 'circuitTotalPhaseConductorCurrentL1', 74 => 'circuitTotalPhaseConductorCurrentL2',
+            75 => 'circuitTotalPhaseConductorCurrentL3', 96 => 'reasonForNoCurrent',
+            50 => 'offlineMaxCircuitCurrentP1', 51 => 'offlineMaxCircuitCurrentP2', 52 => 'offlineMaxCircuitCurrentP3',
+            119 => 'errorCode', 230 => 'eqAvailableCurrentP1', 231 => 'eqAvailableCurrentP2', 232 => 'eqAvailableCurrentP3',
+            115 => 'deratedCurrent', 116 => 'deratingActive', 250 => 'isOnline'
         ];
 
-        $url  = '/state/' . $chargerId . '/observations?ids=31,103,109,120,121,122,124,250';
+        // Which observation IDs to request is configurable via the easee_config.ini
+        // key "observation_ids":
+        //   unset / empty  -> the minimal default set below (low overhead, unchanged
+        //                      behaviour vs. the previous release)
+        //   "all"          -> every mapped ID (full parity with the old /state response)
+        //   "31,109,120"   -> an explicit comma-separated list
+        $defaultObsIds = [31, 103, 109, 120, 121, 122, 124, 250];
+        $cfgObsIds = isset($config['observation_ids']) ? trim($config['observation_ids']) : '';
+        if ($cfgObsIds === '') {
+            $requestedIds = $defaultObsIds;
+        } elseif (strtolower($cfgObsIds) === 'all') {
+            $requestedIds = array_keys($idToFieldMap);
+        } else {
+            $parts = preg_split('/\s*,\s*/', $cfgObsIds, -1, PREG_SPLIT_NO_EMPTY);
+            $requestedIds = array_values(array_unique(array_filter(array_map('intval', $parts), function ($id) use ($idToFieldMap) {
+                return $id > 0 && isset($idToFieldMap[$id]);
+            })));
+            if (empty($requestedIds)) { $requestedIds = $defaultObsIds; }
+        $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
         $apiResponse = get_req($url_base, $url, $token['accessToken']);
 
+        // Pre-initialise every requested field so the response always contains the
+        // requested set (avoids stale values when an observation is omitted);
+        // present observations overwrite these defaults below.
         $data = [];
+        foreach ($requestedIds as $reqId) { if (isset($idToFieldMap[$reqId])) { $data[$idToFieldMap[$reqId]] = 0; } }
         if (!isset($apiResponse['observations']) || !is_array($apiResponse['observations'])) {
             echo 'Somthing went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
             exit;
@@ -275,6 +307,10 @@ switch ($do) {
         }
 
         check_data($data, $url, $file_log_e);	
+        // connectedToCloud has no own observation; it equals the cloud-connection state (id 250 -> isOnline).
+        // Note: the old /state fields 'voltage', 'wiFiAPEnabled', 'fatalErrorCode' and 'errors' have no
+        // Observations equivalent and are intentionally NOT fabricated here.
+        if (isset($data['isOnline'])) { $data['connectedToCloud'] = $data['isOnline']; }
         $data[ 'sentAtTimeLox' ]= epoch2lox();
         $data[ 'sentAtTimeISO' ]= currtime();
         if (array_key_exists('status',$data)) {
