@@ -452,33 +452,86 @@ switch ($do) {
 		break;		
 
     case "post_dynamicPower":
+        // $value: input value is power in kW
 		$url  = '/api/chargers/' . $chargerId . '/site';
 		$data_tmp = get_req($url_base, $url, $token['accessToken']);
 		$cid = $data_tmp['circuits'][0]['id'];
 		$sid = $data_tmp['circuits'][0]['siteId'];
-        // input value is power in kW
-        if ($value < 4.14) {
-            // charging with one phase only - limited to 16A
-            $phase1 = min($value/(230/1000), 16);
-            $phase2 = 0;
-            $phase3 = 0;
-        } else {
-            // three phases - minimum is 6A (=4.14 kW)
-            $phase1 = $value/(230*3/1000);
-            $phase2 = $phase1;
-            $phase3 = $phase1;
+
+        // 1. Read parameters (Standard: 0 = no delay, if not set)
+        $hys_1to3 = isset($_GET['hys1to3']) ? intval($_GET['hys1to3']) : 0; 
+        $hys_3to1 = isset($_GET['hys3to1']) ? intval($_GET['hys3to1']) : 0;
+        
+        $now = time();
+        // State-file to keep track of the last phase and last switch timestamp in log directory (RAM-based)
+        $state_file = $lbplogdir . "/easee_" . $chargerId . "_state.log";
+
+        // Set standard values if the file does not exist or is corrupted
+        $state_data = array("last_phase" => 1, "last_switch" => 0);
+        
+        if (file_exists($state_file)) {
+            $file_content = file_get_contents($state_file);
+            if ($file_content !== false) {
+                $decoded = json_decode($file_content, true);
+                if (is_array($decoded)) {
+                    $state_data = $decoded;
+                }
+            }
         }
-	$postdata = array(
-		"phase1" => $phase1,
-		"phase2" => $phase2,
-		"phase3" => $phase3,
-		"timeToLive" => 14400
-        );
-	$url      = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
-        $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
+        $last_phase = intval($state_data['last_phase']);
+        $last_switch = intval($state_data['last_switch']);
+        $seconds_since_switch = $now - $last_switch;
+
+        // Calculate threshold (3 phases * 6A * 230V = 4.14 kW), value is power in kW
+        $target_phase = ($value < 4.14) ? 1 : 3;
+
+        // Hysteresis check (only active if parameters > 0 are passed)
+        $write_state = false;
+
+        if ($last_phase == 1 && $target_phase == 3) {
+            if ($hys_1to3 > 0 && $seconds_since_switch < $hys_1to3) {
+                // Lock time active! We continue to enforce 1 phase and cap the power at max. 16A single-phase
+                $target_phase = 1;
+                // Enforce 1 phase, limit: 16A * 230V = 3.68 kW
+                if ($value > 3.68) $value = 3.68; 
+            } else {
+                // Switch allowed or hysteresis disabled -> update state
+                $state_data['last_phase'] = 3;
+                $state_data['last_switch'] = $now;
+                $write_state = true;
+            }
+        } elseif ($last_phase == 3 && $target_phase == 1) {
+            if ($hys_3to1 > 0 && $seconds_since_switch < $hys_3to1) {
+                // Lock time active! We stay on 3 phases and maintain the minimum (4.14 kW)
+                $target_phase = 3;
+                if ($value < 4.14) $value = 4.14; 
+            } else {
+                // Switch allowed or hysteresis disabled -> update state
+                $state_data['last_phase'] = 1;
+                $state_data['last_switch'] = $now;
+                $write_state = true;
+            }
+        }
+        // If the state has changed, write the file again
+        if ($write_state) {
+            file_put_contents($state_file, json_encode($state_data));
+        }
+
+        // Calculate the current for each phase based on the target phase and power value
+        if ($target_phase == 1) {
+            // Calculate the current for a single phase, capped at 16A (=3.68 kW) in case hysteresis is not used
+            $ampere = min(round(($value * 1000) / 230, 2), 16);
+            $postdata = array("phase1" => $ampere, "phase2" => 0, "phase3" => 0, "timeToLive" => 14400);
+        } else {
+            $ampere = round(($value * 1000) / (230 * 3), 2);
+            $postdata = array("phase1" => $ampere, "phase2" => $ampere, "phase3" => $ampere, "timeToLive" => 14400);
+        }
+        // Send the calculated current values to the charger via the API
+        $url     = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
+        $data    = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e);	
-	print_r($data);
-	break;	
+        print_r($data);
+        break;	
 		
     case "lock_state":
         $url      = '/api/chargers/' . $chargerId . '/commands/lock_state';
