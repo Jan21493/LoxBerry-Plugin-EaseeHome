@@ -159,9 +159,7 @@ function check_data($data, $url, $file_log) {
 		if (array_key_exists('status',$data)) {
 		echo 'Something went wrong. Error: '.$data[status].' ('.$data[title].')' ;
 		$time_e=date("Y-m-d  H:i:s");
-		$message_j = json_encode($data);
-		$message_s ='ERROR: '.$time_e.' - '.$url.PHP_EOL;
-		$message_s .=$message_j;
+		$message_s ='ERROR: '.$time_e.' - '.$url.' - '.json_encode($data);
 		$myfile = file_put_contents($file_log, $message_s.PHP_EOL , FILE_APPEND | LOCK_EX);
 		exit;
 		}	
@@ -170,16 +168,12 @@ function check_data($data, $url, $file_log) {
 //LOG
 function log_e ($text, $url, $file_log) {
 		$time_e=date("Y-m-d  H:i:s");
-		$message_j = json_encode($text);
-		$message_s ='ERROR: '.$time_e.' - '.$url.PHP_EOL;
-		$message_s .=$message_j;
+		$message_s ='ERROR: '.$time_e.' - '.$url.' - '.json_encode($text);
 		$myfile = file_put_contents($file_log, $message_s.PHP_EOL , FILE_APPEND | LOCK_EX);
 }
 
 function log_i ($text, $url, $file_log) {
 		$time_e=date("Y-m-d  H:i:s");
-		$message_j = json_encode($text);
-		$message_s ='INFO: '.$time_e.' - '.$url.PHP_EOL;
-		$message_s .=$message_j;
+		$message_s ='INFO: '.$time_e.' - '.$url.' - '.json_encode($text);
 		$myfile = file_put_contents($file_log, $message_s.PHP_EOL , FILE_APPEND | LOCK_EX);
 }

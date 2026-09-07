@@ -7,7 +7,7 @@ set_time_limit(15);
 
 //CONFIG
 $url_base    = 'https://api.easee.com';
-$file_token  = $lbpconfigdir.'/easee_token.ini';
+$file_token  = $lbplogdir.'/easee_token.ini';
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $file_log_e	 = $lbplogdir.'/easee-error.log';
 $file_log_i	 = $lbplogdir.'/easee-info.log';
@@ -20,10 +20,11 @@ $value       = ($_GET["value"]);
 //READ CONFIG-FILE
 $config      = json_decode(file_get_contents($file_config), true);
 $token       = json_decode(file_get_contents($file_token), true);
+$max_lifetime = 0;
 //START DO
 if (!empty($do)) {
     //CHECK TOKEN
-    $url_tocken = '/api/accounts/login';
+    $url_token = '/api/accounts/login';
 	$url_refresh_tocken = '/api/accounts/refresh_token';
     if (array_key_exists('status',$token)) {
         $token_time_diff = 86001;
@@ -33,29 +34,34 @@ if (!empty($do)) {
         $time_now        = time();
         $time_file       = filemtime($file_token);
         $token_time_diff = $time_now - $time_file;
+        // Calculate the maximum lifetime of the token considering the safety buffer
+        $safety_buffer = 300; // 5 minutes
+        $max_lifetime = intval($token['expiresIn']) - $safety_buffer;
     }
-	if ($token_time_diff > 900 && $token_time_diff < 86000) {
+    // if token exists and is expired, but within the refresh window, refresh it using the refresh token
+	if ($token_time_diff > $max_lifetime && $token_time_diff < 86000) {
 		get_refresh_token($url_base, $url_refresh_tocken, $file_token, $token['accessToken'], $token['refreshToken']);
         $token = json_decode(file_get_contents($file_token), true);
 		echo 'TOKEN: '.$token;
 		if (array_key_exists('status',$token)) {
-            check_data($token, $url_tocken, $file_log_e);
+            check_data($token, $url_token, $file_log_e);
 			exit;			
         } else {
 			$text='Refresh Token created.';
-			log_i($text, $url_tocken, $file_log_i);
+			log_i($text, $url_token, $file_log_i);
 		}
 	}
+    // if token is expired beyond the refresh window, get a new token
     if ($token_time_diff >= 86000) {
-        get_token($url_base, $url_tocken, $file_token, $config[user][username], $config[user][password]);
+        get_token($url_base, $url_token, $file_token, $config[user][username], $config[user][password]);
         $token = json_decode(file_get_contents($file_token), true);
 		echo 'TOKEN: '.$token;
         if (array_key_exists('status',$token)) {
-            check_data($token, $url_tocken, $file_log_e);
+            check_data($token, $url_token, $file_log_e);
 			exit;			
         } else {
 			$text='New Token created.';
-			log_i($text, $url_tocken, $file_log_i);
+			log_i($text, $url_token, $file_log_i);
 		}
     }
 }
