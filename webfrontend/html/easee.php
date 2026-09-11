@@ -7,7 +7,7 @@ set_time_limit(15);
 
 //CONFIG
 $url_base    = 'https://api.easee.com';
-$file_token  = $lbplogdir.'/easee_token.ini';
+$file_token  = $lbpconfigdir.'/easee_token.ini';
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $file_log_e	 = $lbplogdir.'/easee-error.log';
 $file_log_i	 = $lbplogdir.'/easee-info.log';
@@ -308,6 +308,8 @@ switch ($do) {
             $requestedIds = $defaultObsIds;
         } elseif (strtolower($cfgObsIds) === 'all') {
             $requestedIds = array_keys($idToFieldMap);
+        } elseif (strtolower($cfgObsIds) === 'none') {
+            $requestedIds = [];
         } else {
             $parts = preg_split('/\s*,\s*/', $cfgObsIds, -1, PREG_SPLIT_NO_EMPTY);
             $requestedIds = array_values(array_unique(array_filter(array_map('intval', $parts), function ($id) use ($idToFieldMap) {
@@ -316,7 +318,11 @@ switch ($do) {
             if (empty($requestedIds)) { $requestedIds = $defaultObsIds; }
         }
         $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
-        $apiResponse = get_req($url_base, $url, $token['accessToken']);
+        if (empty($requestedIds)) {
+            $apiResponse = ['observations' => []];
+        } else {
+            $apiResponse = get_req($url_base, $url, $token['accessToken']);
+        }
 
         // Pre-initialise every requested field so the response always contains the
         // requested set (avoids stale values when an observation is omitted);
@@ -543,7 +549,7 @@ switch ($do) {
         
         $now = time();
         // State-file to keep track of the last phase and last switch timestamp in log directory (RAM-based)
-        $state_file = $lbplogdir . "/easee_" . $chargerId . "_state.log";
+        $state_file = $lbpconfigdir . "/easee_" . $chargerId . "_state.log";
 
         // Set standard values if the file does not exist or is corrupted
         $state_data = array("last_phase" => 1, "last_switch" => 0);
