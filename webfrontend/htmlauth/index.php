@@ -1,9 +1,10 @@
 <?php
 require_once "loxberry_system.php";
 require_once "loxberry_web.php";
+include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
-$file_token  = $lbplogdir.'/easee_token.ini';
+$file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $file_log_e  = $lbplogdir.'/easee-error.log';
 $file_log_i  = $lbplogdir.'/easee-info.log';

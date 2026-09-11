@@ -7,7 +7,7 @@ set_time_limit(15);
 
 // Configuration.
 $url_base    = 'https://api.easee.com';
-$file_token  = $lbpconfigdir.'/easee_token.ini';
+$file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $file_log_e	 = $lbplogdir.'/easee-error.log';
 $file_log_i	 = $lbplogdir.'/easee-info.log';
