@@ -548,7 +548,7 @@ switch ($do) {
         $hys_3to1 = isset($_GET['hys3to1']) ? intval($_GET['hys3to1']) : 0;
         
         $now = time();
-        // State-file to keep track of the last phase and last switch timestamp in log directory (RAM-based)
+        // State-file to keep track of the last phase and last switch timestamp (kept outside visible log files)
         $state_file = $lbpconfigdir . "/easee_" . $chargerId . "_state.log";
 
         // Set standard values if the file does not exist or is corrupted
