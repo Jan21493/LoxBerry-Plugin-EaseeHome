@@ -270,6 +270,7 @@ switch ($do) {
         $idToFieldMap = array();
         foreach ($observationDefinitions as $observationId => $definition) {
             $idToFieldMap[$observationId] = $definition['parameter'];
+        }
 
         // Which observation IDs to request is configurable via the easee_config.ini
         // key "observation_ids":
