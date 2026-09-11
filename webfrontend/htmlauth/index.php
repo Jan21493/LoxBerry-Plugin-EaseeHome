@@ -17,7 +17,22 @@ if ($_POST) {
     $return_udp = (isset($_POST['return_udp']) && $_POST['return_udp'] === 'on') ? '1' : '0';
 
     $log_level = easee_normalize_log_level(isset($_POST['log_level']) ? $_POST['log_level'] : 'info');
-    $observation_ids = isset($_POST['observation_ids']) ? trim($_POST['observation_ids']) : '';
+    $observation_definitions = easee_get_observation_definitions();
+    $observation_ids_selected = isset($_POST['observation_ids_selected']) && is_array($_POST['observation_ids_selected']) ? $_POST['observation_ids_selected'] : array();
+    $selected_observation_ids = array();
+    foreach ($observation_ids_selected as $selected_id) {
+        $selected_id = trim((string)$selected_id);
+        if (!ctype_digit($selected_id)) {
+            continue;
+        }
+        $selected_id_int = intval($selected_id);
+        if (isset($observation_definitions[$selected_id_int])) {
+            $selected_observation_ids[] = $selected_id_int;
+        }
+    }
+    $selected_observation_ids = array_values(array_unique($selected_observation_ids));
+    sort($selected_observation_ids, SORT_NUMERIC);
+    $observation_ids = implode(',', $selected_observation_ids);
 
     if (file_exists($file_token)) {
         unlink($file_token);
@@ -85,6 +100,31 @@ if (!is_array($data)) {
 $charger_status = easee_read_all_charger_status($lbplogdir);
 $observation_definitions = easee_get_observation_definitions();
 ksort($observation_definitions);
+$default_observation_ids = easee_get_default_observation_ids();
+$selected_observation_ids = easee_get_requested_observation_ids($config['observation_ids'], $observation_definitions, $default_observation_ids);
+$selected_observation_lookup = array_fill_keys($selected_observation_ids, true);
+$observation_groups = array(
+    'charger_control' => array(
+        'label' => $L['OBSERVATIONS.GROUP_CHARGER_CONTROL'],
+        'ids' => array(30, 31, 46, 47, 48, 50, 51, 52)
+    ),
+    'circuit_and_load' => array(
+        'label' => $L['OBSERVATIONS.GROUP_CIRCUIT_LOAD'],
+        'ids' => array(70, 71, 72, 73, 74, 75, 111, 112, 113, 230, 231, 232)
+    ),
+    'charging_state' => array(
+        'label' => $L['OBSERVATIONS.GROUP_CHARGING_STATE'],
+        'ids' => array(96, 102, 103, 104, 109, 110, 114, 115, 116, 119, 120, 121, 122, 124, 250)
+    ),
+    'connectivity' => array(
+        'label' => $L['OBSERVATIONS.GROUP_CONNECTIVITY'],
+        'ids' => array(80, 130, 131, 132, 136)
+    ),
+    'measurements' => array(
+        'label' => $L['OBSERVATIONS.GROUP_MEASUREMENTS'],
+        'ids' => array(182, 183, 184, 185, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199)
+    )
+);
 
 $ii = 1;
 foreach ($data as $datakey => $dataval) {
@@ -118,6 +158,7 @@ echo '<br>';
 echo '<form action="index.php" method="post">';
 
 // User credentials.
+echo '<fieldset style="margin-bottom:12px; padding:10px;"><legend><b>' . $L['SETTINGS.GROUP_ACCOUNT'] . '</b></legend>';
 echo '<p class="wide">' . $L['USER.HEAD'] . '</p>';
 echo '<label for="username">' . $L['USER.USER'] . '</label>';
 echo '<input data-inline="true" data-mini="true" name="username" id="username" value="' . htmlspecialchars($config['user']['username'], ENT_QUOTES) . '" type="text">';
@@ -174,8 +215,10 @@ if (strpos($token_str, 'accessToken') === false) {
     }
     echo '<br><br>';
 }
+echo '</fieldset>';
 
 // Miniserver selection.
+echo '<fieldset style="margin-bottom:12px; padding:10px;"><legend><b>' . $L['SETTINGS.GROUP_OUTPUT'] . '</b></legend>';
 echo '<p class="wide">' . $L['MINISERVER.HEAD'] . '</p>';
 $ms = LBSystem::get_miniservers();
 $miniserver_name = '';
@@ -209,7 +252,9 @@ echo '<label for="return_udp">' . $L['RETURN.UDP'] . '</label>';
 echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '>';
 echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
 echo '<input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text">';
+echo '</fieldset>';
 
+echo '<fieldset style="margin-bottom:12px; padding:10px;"><legend><b>' . $L['SETTINGS.GROUP_DIAGNOSTICS'] . '</b></legend>';
 echo '<br><br><p class="wide">' . $L['LOGGING.HEAD'] . '</p>';
 echo '<label for="log_level">' . $L['LOGGING.LEVEL'] . '</label>';
 echo '<select name="log_level" id="log_level">';
@@ -220,25 +265,75 @@ foreach ($log_levels as $level => $label) {
 }
 echo '</select>';
 echo '<br><small>' . $L['LOGGING.HINT'] . '</small>';
+echo '</fieldset>';
 
+echo '<fieldset style="margin-bottom:12px; padding:10px;"><legend><b>' . $L['SETTINGS.GROUP_OBSERVATIONS'] . '</b></legend>';
 echo '<br><br><p class="wide">' . $L['OBSERVATIONS.HEAD'] . '</p>';
-echo '<label for="observation_ids">' . $L['OBSERVATIONS.LIST_LABEL'] . '</label>';
-echo '<input data-inline="true" data-mini="true" name="observation_ids" id="observation_ids" value="' . htmlspecialchars($config['observation_ids'], ENT_QUOTES) . '" type="text">';
+echo '<label for="observation_ids">' . $L['OBSERVATIONS.SELECTED_LABEL'] . '</label>';
+echo '<input data-inline="true" data-mini="true" name="observation_ids" id="observation_ids" value="' . htmlspecialchars(implode(',', $selected_observation_ids), ENT_QUOTES) . '" type="text" readonly>';
 echo '<small>' . $L['OBSERVATIONS.HINT'] . '</small>';
-echo '<div style="overflow-x:auto; margin-top:8px;">';
-echo '<table style="width:100%; border-collapse:collapse;">';
-echo '<tr><th style="text-align:left; border-bottom:1px solid #ccc;">' . $L['OBSERVATIONS.TABLE_ID'] . '</th><th style="text-align:left; border-bottom:1px solid #ccc;">' . $L['OBSERVATIONS.TABLE_PARAMETER'] . '</th><th style="text-align:left; border-bottom:1px solid #ccc;">' . $L['OBSERVATIONS.TABLE_DESCRIPTION'] . '</th></tr>';
-foreach ($observation_definitions as $observation_id => $definition) {
-    echo '<tr>';
-    echo '<td style="padding:3px 6px 3px 0;">' . intval($observation_id) . '</td>';
-    echo '<td style="padding:3px 6px 3px 0;">' . htmlspecialchars($definition['parameter'], ENT_QUOTES) . '</td>';
-    echo '<td style="padding:3px 0;">' . htmlspecialchars($definition['description'], ENT_QUOTES) . '</td>';
-    echo '</tr>';
+echo '<br><br><label>' . $L['OBSERVATIONS.LIST_LABEL'] . '</label>';
+$grouped_observation_ids = array();
+foreach ($observation_groups as $group) {
+    echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
+    echo '<b>' . $group['label'] . '</b>';
+    foreach ($group['ids'] as $observation_id) {
+        if (!isset($observation_definitions[$observation_id])) {
+            continue;
+        }
+        $grouped_observation_ids[$observation_id] = true;
+        $definition = $observation_definitions[$observation_id];
+        $is_checked = isset($selected_observation_lookup[$observation_id]) ? ' checked' : '';
+        echo '<label title="' . htmlspecialchars($definition['description'], ENT_QUOTES) . '" style="display:block; margin-top:4px;">';
+        echo '<input class="observation-checkbox" type="checkbox" name="observation_ids_selected[]" value="' . intval($observation_id) . '"' . $is_checked . '> ';
+        echo intval($observation_id) . ' - ' . htmlspecialchars($definition['parameter'], ENT_QUOTES);
+        echo '</label>';
+    }
+    echo '</div>';
 }
-echo '</table>';
-echo '</div>';
+
+$other_observation_ids = array();
+foreach ($observation_definitions as $observation_id => $definition) {
+    if (!isset($grouped_observation_ids[$observation_id])) {
+        $other_observation_ids[] = $observation_id;
+    }
+}
+if (!empty($other_observation_ids)) {
+    echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
+    echo '<b>' . $L['OBSERVATIONS.GROUP_OTHER'] . '</b>';
+    foreach ($other_observation_ids as $observation_id) {
+        $definition = $observation_definitions[$observation_id];
+        $is_checked = isset($selected_observation_lookup[$observation_id]) ? ' checked' : '';
+        echo '<label title="' . htmlspecialchars($definition['description'], ENT_QUOTES) . '" style="display:block; margin-top:4px;">';
+        echo '<input class="observation-checkbox" type="checkbox" name="observation_ids_selected[]" value="' . intval($observation_id) . '"' . $is_checked . '> ';
+        echo intval($observation_id) . ' - ' . htmlspecialchars($definition['parameter'], ENT_QUOTES);
+        echo '</label>';
+    }
+    echo '</div>';
+}
+echo '</fieldset>';
 
 echo '<br><p><center><input data-role="button" data-inline="true" data-mini="true" type="submit" name="save_new" data-icon="check" value="' . $L['MAIN.SAVE'] . '"> </center></p>';
 echo '</form>';
+echo '<script>';
+echo 'document.addEventListener("DOMContentLoaded", function () {';
+echo '  var output = document.getElementById("observation_ids");';
+echo '  var checkboxes = document.querySelectorAll(".observation-checkbox");';
+echo '  var syncSelectedIds = function () {';
+echo '    var ids = [];';
+echo '    for (var i = 0; i < checkboxes.length; i++) {';
+echo '      if (checkboxes[i].checked) {';
+echo '        ids.push(parseInt(checkboxes[i].value, 10));';
+echo '      }';
+echo '    }';
+echo '    ids.sort(function (a, b) { return a - b; });';
+echo '    output.value = ids.join(",");';
+echo '  };';
+echo '  for (var i = 0; i < checkboxes.length; i++) {';
+echo '    checkboxes[i].addEventListener("change", syncSelectedIds);';
+echo '  }';
+echo '  syncSelectedIds();';
+echo '});';
+echo '</script>';
 LBWeb::lbfooter();
 ?>
