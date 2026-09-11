@@ -6,6 +6,8 @@ include $lbphtmldir.'/easee_functions.php';
 $L = LBWeb::readlanguage("language.ini");
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
+$file_log_e  = $lbplogdir.'/easee-error.log';
+$file_log_i  = $lbplogdir.'/easee-info.log';
 $url_base    = 'https://api.easee.cloud';
 $url_tocken  = '/api/accounts/login';
 
@@ -83,9 +85,15 @@ if ($_POST) {
 }
 
 $config = json_decode(@file_get_contents($file_config), true);
+$token = json_decode(@file_get_contents($file_token), true);
+$token_str = @file_get_contents($file_token);
+$token_str = ($token_str === false) ? '' : $token_str;
 
 if (!is_array($config)) {
     $config = array();
+}
+if (!is_array($token)) {
+    $token = array();
 }
 if (!isset($config['user'])) {
     $config['user'] = array('username' => '', 'password' => '');
@@ -109,6 +117,13 @@ if (!isset($config['observation_ids'])) {
     $config['observation_ids'] = '';
 }
 
+$url_get_chargers = '/api/chargers';
+$data = get_req($url_base, $url_get_chargers, isset($token['accessToken']) ? $token['accessToken'] : '');
+if (!is_array($data)) {
+    $data = array();
+}
+
+$charger_status = easee_read_all_charger_status($lbplogdir);
 $observation_definitions = easee_get_observation_definitions();
 ksort($observation_definitions);
 $default_observation_ids = easee_get_default_observation_ids();
@@ -137,6 +152,18 @@ $observation_groups = array(
     )
 );
 
+$ii = 1;
+foreach ($data as $datakey => $dataval) {
+    if (!is_array($dataval) || !isset($dataval['id'])) {
+        continue;
+    }
+    $url  = '/api/chargers/' . $dataval['id'] . '/site';
+    $data2 = get_req($url_base, $url, isset($token['accessToken']) ? $token['accessToken'] : '');
+    ${'sid_' . $ii} = isset($data2['circuits'][0]['id']) ? $data2['circuits'][0]['id'] : '';
+    ${'cid_' . $ii} = isset($data2['circuits'][0]['siteId']) ? $data2['circuits'][0]['siteId'] : '';
+    $ii++;
+}
+
 $template_title = "EaseeHome";
 $helplink = $L['LINKS.WIKI'];
 $helptemplate = "pluginhelp.html";
@@ -158,8 +185,117 @@ echo '<p>' . $L['MAIN.INTRO1'] . '</p>';
 echo '<br>';
 echo '<form action="index.php" method="post">';
 
-echo '<fieldset style="margin-bottom:12px; padding:10px;"><legend><b>' . $L['OBSERVATION.HEAD'] . '</b></legend>';
-echo '<br><br><p class="wide">' . $L['OBSERVATIONS.HEAD'] . '</p>';
+// User credentials and wallbox overview.
+echo '<fieldset style="margin-bottom:12px; padding:10px;">';
+echo '<p class="wide">' . $L['USER.HEAD'] . '</p>';
+echo '<label for="username">' . $L['USER.USER'] . '</label>';
+echo '<input data-inline="true" data-mini="true" name="username" id="username" value="' . htmlspecialchars($config['user']['username'], ENT_QUOTES) . '" type="text">';
+echo '<label for="password">' . $L['USER.PASS'] . '</label>';
+echo '<input data-inline="true" data-mini="true" name="password" id="password" value="' . htmlspecialchars($config['user']['password'], ENT_QUOTES) . '" type="password">';
+
+if (strpos($token_str, 'accessToken') === false) {
+    echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br><br>';
+    log_e($token, $url_tocken, $file_log_e);
+} else {
+    echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br><br>';
+    echo '<p class="wide">' . $L['WALLBOX.HEAD'] . '</p>';
+    $i = 1;
+    foreach ($data as $datakey => $dataval) {
+        if (!is_array($dataval) || !isset($dataval['id'])) {
+            continue;
+        }
+        $charger_id = $dataval['id'];
+        echo '<b>' . $i . '</b> - ' . $L['WALLBOX.NAME'] . ': <b>' . htmlspecialchars($dataval['name'], ENT_QUOTES) . ' / </b>' . $L['WALLBOX.ID'] . ': <b>' . htmlspecialchars($charger_id, ENT_QUOTES) . '</b>';
+        echo ' (' . $L['WALLBOX.SITE_ID'] . ': ' . htmlspecialchars(${'sid_' . $i}, ENT_QUOTES) . ' / ' . $L['WALLBOX.CIRCUIT_ID'] . ': ' . htmlspecialchars(${'cid_' . $i}, ENT_QUOTES) . ')<br>';
+
+        if (isset($charger_status[$charger_id])) {
+            $status = $charger_status[$charger_id];
+            echo '<div style="padding:4px 0 10px 20px;">';
+            echo '<small><b>' . $L['STATUS.HEAD'] . '</b><br>';
+            echo $L['STATUS.UPDATED_AT'] . ': ' . htmlspecialchars(isset($status['updatedAtIso']) ? $status['updatedAtIso'] : '-', ENT_QUOTES) . '<br>';
+
+            if (isset($status['lastState']) && is_array($status['lastState'])) {
+                $last_state = $status['lastState'];
+                echo $L['STATUS.OP_MODE'] . ': ' . htmlspecialchars(isset($last_state['chargerOpMode']) ? strval($last_state['chargerOpMode']) : '-', ENT_QUOTES) . ' | ';
+                echo $L['STATUS.TOTAL_POWER'] . ': ' . htmlspecialchars(isset($last_state['totalPower']) ? strval($last_state['totalPower']) : '-', ENT_QUOTES) . ' | ';
+                echo $L['STATUS.OUTPUT_PHASE'] . ': ' . htmlspecialchars(isset($last_state['outputPhase']) ? strval($last_state['outputPhase']) : '-', ENT_QUOTES) . '<br>';
+            }
+
+            if (isset($status['lastDynamicPowerChange']) && is_array($status['lastDynamicPowerChange'])) {
+                $dynamic_status = $status['lastDynamicPowerChange'];
+                $phase_mode_label = '-';
+                if (isset($dynamic_status['phaseCount']) && intval($dynamic_status['phaseCount']) === 1) {
+                    $phase_mode_label = $L['STATUS.PHASE_SINGLE'];
+                } elseif (isset($dynamic_status['phaseCount']) && intval($dynamic_status['phaseCount']) === 3) {
+                    $phase_mode_label = $L['STATUS.PHASE_THREE'];
+                }
+                echo $L['STATUS.LAST_POWER_UPDATE'] . ': ' . htmlspecialchars(isset($dynamic_status['timestamp']) ? strval($dynamic_status['timestamp']) : '-', ENT_QUOTES) . '<br>';
+                echo $L['STATUS.REQUESTED_POWER'] . ': ' . htmlspecialchars(isset($dynamic_status['requestedPowerKw']) ? strval($dynamic_status['requestedPowerKw']) : '-', ENT_QUOTES) . 'kW | ';
+                echo $L['STATUS.EFFECTIVE_POWER'] . ': ' . htmlspecialchars(isset($dynamic_status['effectivePowerKw']) ? strval($dynamic_status['effectivePowerKw']) : '-', ENT_QUOTES) . 'kW | ';
+                echo $L['STATUS.PHASE_MODE'] . ': ' . htmlspecialchars($phase_mode_label, ENT_QUOTES) . '<br>';
+                echo $L['STATUS.HYSTERESIS'] . ' (1→3/3→1): ' . htmlspecialchars(isset($dynamic_status['hys1to3Seconds']) ? strval($dynamic_status['hys1to3Seconds']) : '-', ENT_QUOTES) . 's / ' . htmlspecialchars(isset($dynamic_status['hys3to1Seconds']) ? strval($dynamic_status['hys3to1Seconds']) : '-', ENT_QUOTES) . 's';
+            }
+            echo '</small></div>';
+        }
+
+        $i++;
+    }
+    echo '<br><br>';
+}
+echo '</fieldset>';
+
+// Miniserver and output.
+echo '<fieldset style="margin-bottom:12px; padding:10px;">';
+echo '<p class="wide">' . $L['MINISERVER.HEAD'] . '</p>';
+$ms = LBSystem::get_miniservers();
+$miniserver_name = '';
+if (is_array($ms)) {
+    foreach ($ms as $element) {
+        if ($element['IPAddress'] == $config['miniserver']['ip']) {
+            $miniserver_name = $element['Name'];
+            break;
+        }
+    }
+}
+if (!is_array($ms)) {
+    echo $L['MINISERVER.NOMS'];
+} else {
+    echo '<label for="miniserver">' . $L['MINISERVER.CHOOSE'] . '</label>';
+    echo '<select name="miniserver" id="miniserver">';
+    echo '<option select value="' . htmlspecialchars($config['miniserver']['ip'], ENT_QUOTES) . '">' . htmlspecialchars($miniserver_name, ENT_QUOTES) . '</option>';
+    echo '<option></option>';
+    foreach ($ms as $miniserver) {
+        echo '<option value="' . htmlspecialchars($miniserver['IPAddress'], ENT_QUOTES) . '">' . htmlspecialchars($miniserver['Name'], ENT_QUOTES) . '</option>';
+    }
+    echo '</select>';
+}
+echo '<br><br><p class="wide">' . $L['RETURN.HEAD'] . '</p>';
+echo '<label for="return_mqtt">' . $L['RETURN.MQTT'] . '</label>';
+echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if ($config['send_mqtt'] > 0) { echo ' checked'; } echo '>';
+echo '<label for="return_json">' . $L['RETURN.JSON'] . '</label>';
+echo '<input type="checkbox" id="return_json" name="return_json"'; if ($config['send_json'] > 0) { echo ' checked'; } echo '>';
+echo '<label for="return_udp">' . $L['RETURN.UDP'] . '</label>';
+echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '>';
+echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
+echo '<input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text">';
+echo '</fieldset>';
+
+// Logging settings.
+echo '<fieldset style="margin-bottom:12px; padding:10px;">';
+echo '<p class="wide">' . $L['LOGGING.HEAD'] . '</p>';
+echo '<label for="log_level">' . $L['LOGGING.LEVEL'] . '</label>';
+echo '<select name="log_level" id="log_level">';
+$log_levels = array('error' => $L['LOGGING.ERROR'], 'warn' => $L['LOGGING.WARN'], 'info' => $L['LOGGING.INFO'], 'debug' => $L['LOGGING.DEBUG']);
+foreach ($log_levels as $level => $label) {
+    $selected = (easee_normalize_log_level($config['log_level']) === $level) ? ' selected' : '';
+    echo '<option value="' . $level . '"' . $selected . '>' . $label . '</option>';
+}
+echo '</select>';
+echo '<br><small>' . $L['LOGGING.HINT'] . '</small>';
+echo '</fieldset>';
+
+// Observation settings.
+echo '<fieldset style="margin-bottom:12px; padding:10px;">';
 echo '<div style="margin-top:6px;">';
 echo '<button type="button" id="observation-preset-none" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_NONE'] . '</button> ';
 echo '<button type="button" id="observation-preset-standard" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_STANDARD'] . '</button> ';
@@ -217,6 +353,11 @@ echo 'document.addEventListener("DOMContentLoaded", function () {';
 echo '  var output = document.getElementById("observation_ids");';
 echo '  var checkboxes = document.querySelectorAll(".observation-checkbox");';
 echo '  var defaultIds = {"31":true,"103":true,"109":true,"120":true,"121":true,"122":true,"124":true,"250":true};';
+echo '  var refreshCheckboxUi = function (checkbox) {';
+echo '    if (window.jQuery && typeof jQuery === "function" && jQuery(checkbox).checkboxradio) {';
+echo '      try { jQuery(checkbox).checkboxradio("refresh"); } catch (e) {}';
+echo '    }';
+echo '  };';
 echo '  var applyPreset = function (preset) {';
 echo '    for (var i = 0; i < checkboxes.length; i++) {';
 echo '      if (preset === "none") {';
@@ -226,6 +367,7 @@ echo '        checkboxes[i].checked = true;';
 echo '      } else if (preset === "standard") {';
 echo '        checkboxes[i].checked = !!defaultIds[checkboxes[i].value];';
 echo '      }';
+echo '      refreshCheckboxUi(checkboxes[i]);';
 echo '    }';
 echo '    syncSelectedIds();';
 echo '  };';

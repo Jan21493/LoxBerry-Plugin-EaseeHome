@@ -7,7 +7,6 @@ $L = LBWeb::readlanguage("language.ini");
 
 $template_title = "EaseeHome";
 $helplink = $L['LINKS.WIKI'];
-$helplink = "https://www.loxwiki.eu/display/LOXBERRY/Easee+Home+Wallbox";
 $helptemplate = "pluginhelp.html";
 
 $navbar[1]['Name'] = $L['NAVBAR.FIRST'];
@@ -67,6 +66,9 @@ if ($handle = opendir($lbplogdir)) {
           }
           $lowerEntry = strtolower($entry);
           if (strpos($lowerEntry, 'token.ini') !== false || strpos($lowerEntry, 'state.log') !== false || strpos($lowerEntry, 'lock-date') !== false) {
+            continue;
+          }
+          if (preg_match('/^easee_status.*\.json(\.lock)?$/', $lowerEntry)) {
             continue;
           }
           echo '<div class="ui-corner-all ui-shadow">';

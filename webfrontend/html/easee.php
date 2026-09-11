@@ -34,12 +34,17 @@ if (!is_array($token)) {
 }
 $log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
 $max_lifetime = 0;
-easee_log('debug', 'Received request', array(
+$request_context = array(
     'do' => $do,
-    'chargerId' => $chargerId,
-    'type' => $type,
-    'value' => $value
-), $file_log_i, $file_log_e, $log_level);
+    'chargerId' => $chargerId
+);
+if ($type !== null && $type !== '') {
+    $request_context['type'] = $type;
+}
+if ($value !== null && $value !== '') {
+    $request_context['value'] = $value;
+}
+easee_log('debug', 'Received request', $request_context, $file_log_i, $file_log_e, $log_level);
 
 // Start request handling.
 if (!empty($do)) {
