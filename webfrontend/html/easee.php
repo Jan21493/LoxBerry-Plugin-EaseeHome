@@ -16,6 +16,10 @@ $do          = ($_GET["do"]);
 $chargerId   = ($_GET["id"]);
 $type        = ($_GET["type"]);
 $value       = ($_GET["value"]);
+$query_view  = isset($_GET['query_view']) && $_GET['query_view'] === '1';
+if ($query_view) {
+    ob_start();
+}
 //---------------------------------------------------------------------------------------------------
 // Read config and token files.
 $configRaw = @file_get_contents($file_config);
@@ -719,6 +723,29 @@ switch ($do) {
 
 	default:
         echo "!! do is missing !!";
+}
+
+if ($query_view) {
+    $raw_output = trim(ob_get_clean());
+    $payload = isset($data) ? $data : null;
+    if ($payload === null && $raw_output !== '') {
+        $decoded_output = json_decode($raw_output, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $payload = $decoded_output;
+        }
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    if ($payload !== null) {
+        $formatted_json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($formatted_json !== false) {
+            echo '<pre style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px;">' . htmlspecialchars($formatted_json, ENT_QUOTES, 'UTF-8') . '</pre>';
+        } else {
+            echo '<pre style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px;">' . htmlspecialchars($raw_output, ENT_QUOTES, 'UTF-8') . '</pre>';
+        }
+    } else {
+        echo '<pre style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px;">' . htmlspecialchars($raw_output === '' ? 'OK' : $raw_output, ENT_QUOTES, 'UTF-8') . '</pre>';
+    }
 }
 exit();
 ?>

@@ -276,7 +276,7 @@ function easee_get_observation_definitions()
 // Return default observation IDs for lightweight polling.
 function easee_get_default_observation_ids()
 {
-    return array(31, 103, 109, 110, 120, 121, 122, 124, 250);
+    return array(31, 103, 109, 120, 121, 122, 124, 250);
 }
 
 // Parse configured observation IDs.
@@ -291,6 +291,10 @@ function easee_get_requested_observation_ids($configuredObservationIds, $availab
 
     if (strtolower($configuredObservationIds) === 'all') {
         return $availableIds;
+    }
+
+    if (strtolower($configuredObservationIds) === 'none') {
+        return array();
     }
 
     $parts = preg_split('/\s*,\s*/', $configuredObservationIds, -1, PREG_SPLIT_NO_EMPTY);
