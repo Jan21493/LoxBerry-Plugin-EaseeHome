@@ -7,7 +7,7 @@ set_time_limit(15);
 
 // Configuration.
 $url_base    = 'https://api.easee.com';
-$file_token  = $lbplogdir.'/easee_token.ini';
+$file_token  = $lbpconfigdir.'/easee_token.ini';
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $file_log_e	 = $lbplogdir.'/easee-error.log';
 $file_log_i	 = $lbplogdir.'/easee-info.log';
@@ -265,11 +265,32 @@ switch ($do) {
         }		
         break;	
     case "state":
-        // Build observation ID mappings from shared definitions.
+        // Build observation ID mappings from shared definitions, see https://developer.easee.com/docs/charger-observation-ids
         $observationDefinitions = easee_get_observation_definitions();
         $idToFieldMap = array();
         foreach ($observationDefinitions as $observationId => $definition) {
             $idToFieldMap[$observationId] = $definition['parameter'];
+
+        // Which observation IDs to request is configurable via the easee_config.ini
+        // key "observation_ids":
+        //   unset / empty  -> the minimal default set below (low overhead, unchanged
+        //                      behaviour vs. the previous release)
+        //   "all"          -> every mapped ID (full parity with the old /state response)
+        //   "31,109,120"   -> an explicit comma-separated list
+        $defaultObsIds = [31, 103, 109, 120, 121, 122, 124, 250];
+        $cfgObsIds = isset($config['observation_ids']) ? trim($config['observation_ids']) : '';
+        if ($cfgObsIds === '') {
+            $requestedIds = $defaultObsIds;
+        } elseif (strtolower($cfgObsIds) === 'all') {
+            $requestedIds = array_keys($idToFieldMap);
+        } elseif (strtolower($cfgObsIds) === 'none') {
+            $requestedIds = [];
+        } else {
+            $parts = preg_split('/\s*,\s*/', $cfgObsIds, -1, PREG_SPLIT_NO_EMPTY);
+            $requestedIds = array_values(array_unique(array_filter(array_map('intval', $parts), function ($id) use ($idToFieldMap) {
+                return $id > 0 && isset($idToFieldMap[$id]);
+            })));
+            if (empty($requestedIds)) { $requestedIds = $defaultObsIds; }
         }
 
         // Parse configured observation IDs.
@@ -287,7 +308,11 @@ switch ($do) {
         ), $file_log_i, $file_log_e, $log_level);
 
         $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
-        $apiResponse = get_req($url_base, $url, $token['accessToken']);
+        if (empty($requestedIds)) {
+            $apiResponse = ['observations' => []];
+        } else {
+            $apiResponse = get_req($url_base, $url, $token['accessToken']);
+        }
 
         // Pre-initialize all requested fields with defaults.
         $data = [];
@@ -530,7 +555,7 @@ switch ($do) {
         $hys_3to1 = isset($_GET['hys3to1']) ? intval($_GET['hys3to1']) : 0;
         
         $now = time();
-        // Keep the latest phase and switch timestamp in log directory.
+k        // Keep the latest phase and switch timestamp in log directory.
         $state_file = $lbplogdir . "/easee_" . $chargerId . "_state.log";
 
         // Use defaults if state file does not exist or cannot be parsed.

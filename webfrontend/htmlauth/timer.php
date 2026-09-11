@@ -15,6 +15,8 @@ $navbar[1]['URL'] = 'index.php';
 
 $navbar[2]['Name'] = $L['NAVBAR.SECOND'];
 $navbar[2]['URL'] = 'log.php';
+$navbar[3]['Name'] = $L['NAVBAR.THIRD'];
+$navbar[3]['URL'] = 'queries.php';
 
 
 // NAVBAR
@@ -41,4 +43,3 @@ var timer = setTimeout(\'countDown(\'+secs+\',"\'+elem+\'")\',1000);
 ';
 LBWeb::lbfooter();
 ?>
-

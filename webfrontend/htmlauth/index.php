@@ -1,7 +1,6 @@
 <?php
 require_once "loxberry_system.php";
 require_once "loxberry_web.php";
-include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
 $file_token  = $lbplogdir.'/easee_token.ini';
@@ -146,6 +145,8 @@ $navbar[1]['Name'] = $L['NAVBAR.FIRST'];
 $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = $L['NAVBAR.SECOND'];
 $navbar[2]['URL'] = 'log.php';
+$navbar[3]['Name'] = $L['NAVBAR.THIRD'];
+$navbar[3]['URL'] = 'queries.php';
 
 // Navbar.
 $navbar[1]['active'] = true;
