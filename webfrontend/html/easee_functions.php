@@ -267,7 +267,7 @@ function easee_get_observation_definitions()
 // Return default observation IDs for lightweight polling.
 function easee_get_default_observation_ids()
 {
-    return array(31, 103, 109, 120, 121, 122, 124, 250);
+    return array(31, 103, 109, 110, 120, 121, 122, 124, 250);
 }
 
 // Parse configured observation IDs.
