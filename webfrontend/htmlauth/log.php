@@ -24,8 +24,40 @@ $navbar[2]['active'] = True;
 
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
+$file_log_e  = $lbplogdir . '/easee-error.log';
+$file_log_i  = $lbplogdir . '/easee-info.log';
+$delete_feedback = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_log'])) {
+    $log_to_delete = $_POST['delete_log'];
+    $target_file = '';
+    if ($log_to_delete === 'error') {
+        $target_file = $file_log_e;
+    } elseif ($log_to_delete === 'info') {
+        $target_file = $file_log_i;
+    }
+
+    if ($target_file !== '') {
+        if (file_exists($target_file)) {
+            if (@unlink($target_file)) {
+                $delete_feedback = $L['LOGFILES.DELETE_SUCCESS'];
+            } else {
+                $delete_feedback = $L['LOGFILES.DELETE_FAILED'];
+            }
+        } else {
+            $delete_feedback = $L['LOGFILES.DELETE_MISSING'];
+        }
+    }
+}
+
 //LOGFILES
 echo '<p class="wide">'. $L['LOGFILES.HEAD']. '</p>';
+echo '<form method="post" action="log.php" style="margin-bottom:12px;">';
+echo '<button type="submit" name="delete_log" value="error" data-inline="true" data-mini="true">' . $L['LOGFILES.DELETE_ERROR_BUTTON'] . '</button> ';
+echo '<button type="submit" name="delete_log" value="info" data-inline="true" data-mini="true">' . $L['LOGFILES.DELETE_INFO_BUTTON'] . '</button>';
+echo '</form>';
+if ($delete_feedback !== '') {
+    echo '<small>' . htmlspecialchars($delete_feedback, ENT_QUOTES) . '</small><br><br>';
+}
 
 if ($handle = opendir($lbplogdir)) {
     while (false !== ($entry = readdir($handle))) {

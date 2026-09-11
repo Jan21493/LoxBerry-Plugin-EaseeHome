@@ -63,6 +63,7 @@ echo '<img src="logo.png" alt="Easee Home">';
 echo '<p>'.$L['MAIN.INTRO1'].'</p><br>';
 echo '<p class="wide">'.$L['NAVBAR.THIRD'].'</p>';
 echo '<form action="/plugins/easee_home/easee.php" method="get" target="query_result">';
+echo '<input type="hidden" name="query_view" value="1">';
 echo '<label for="do">do</label>';
 echo '<select name="do" id="do">';
 foreach ($doOptions as $doOption) {
