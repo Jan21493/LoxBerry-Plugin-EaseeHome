@@ -30,6 +30,9 @@ echo '<p class="wide">'. $L['LOGFILES.HEAD']. '</p>';
 if ($handle = opendir($lbplogdir)) {
     while (false !== ($entry = readdir($handle))) {
         if ($entry != "." && $entry != "..") {
+          if (is_dir($lbplogdir . '/' . $entry)) {
+            continue;
+          }
           $lowerEntry = strtolower($entry);
           if (strpos($lowerEntry, 'token.ini') !== false || strpos($lowerEntry, 'state.log') !== false || strpos($lowerEntry, 'lock-date') !== false) {
             continue;

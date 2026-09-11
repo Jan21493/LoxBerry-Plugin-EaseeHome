@@ -1,5 +1,14 @@
 <?php
 
+function easee_get_token_file($lbplogdir)
+{
+    $tokenDir = rtrim($lbplogdir, '/') . '/token';
+    if (!is_dir($tokenDir)) {
+        @mkdir($tokenDir, 0700, true);
+    }
+    return $tokenDir . '/easee_token.ini';
+}
+
 // Get token.
 function get_token($url_base, $url_tocken, $file_token, $username, $password)
 {

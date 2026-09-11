@@ -4,7 +4,7 @@ require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
-$file_token = $lbpconfigdir.'/easee_token.ini';
+$file_token = easee_get_token_file($lbplogdir);
 $url_base = 'https://api.easee.com';
 $chargers = [];
 
