@@ -1,59 +1,100 @@
 <?php
 require_once "loxberry_system.php";
 require_once "loxberry_web.php";
-include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
-$file_token  = $lbpconfigdir.'/easee_token.ini';
 $file_config = $lbpconfigdir.'/easee_config.ini';
-$file_log_e	 = $lbplogdir.'/easee-error.log';
-$file_log_i	 = $lbplogdir.'/easee-info.log';
-$url_base    = 'https://api.easee.cloud';
-$url_tocken = '/api/accounts/login';
+$defaultObsIds = [31, 103, 109, 120, 121, 122, 124, 250];
+$observationOptions = [
+	31 => 'isEnabled',
+	102 => 'smartCharging',
+	103 => 'cableLocked',
+	109 => 'chargerOpMode',
+	120 => 'totalPower',
+	121 => 'sessionEnergy',
+	122 => 'energyPerHour',
+	124 => 'lifetimeEnergy',
+	132 => 'wiFiRSSI',
+	130 => 'cellRSSI',
+	136 => 'localRSSI',
+	110 => 'outputPhase',
+	111 => 'dynamicCircuitCurrentP1',
+	112 => 'dynamicCircuitCurrentP2',
+	113 => 'dynamicCircuitCurrentP3',
+	80 => 'chargerFirmware',
+	131 => 'chargerRAT',
+	30 => 'lockCablePermanently',
+	182 => 'inCurrentT2',
+	183 => 'inCurrentT3',
+	184 => 'inCurrentT4',
+	185 => 'inCurrentT5',
+	114 => 'outputCurrent',
+	190 => 'inVoltageT1T2',
+	191 => 'inVoltageT1T3',
+	192 => 'inVoltageT1T4',
+	193 => 'inVoltageT1T5',
+	194 => 'inVoltageT2T3',
+	195 => 'inVoltageT2T4',
+	196 => 'inVoltageT2T5',
+	197 => 'inVoltageT3T4',
+	198 => 'inVoltageT3T5',
+	199 => 'inVoltageT4T5',
+	46 => 'ledMode',
+	104 => 'cableRating',
+	48 => 'dynamicChargerCurrent',
+	47 => 'maxChargerCurrent',
+	70 => 'circuitTotalAllocatedPhaseConductorCurrentL1',
+	71 => 'circuitTotalAllocatedPhaseConductorCurrentL2',
+	72 => 'circuitTotalAllocatedPhaseConductorCurrentL3',
+	73 => 'circuitTotalPhaseConductorCurrentL1',
+	74 => 'circuitTotalPhaseConductorCurrentL2',
+	75 => 'circuitTotalPhaseConductorCurrentL3',
+	96 => 'reasonForNoCurrent',
+	50 => 'offlineMaxCircuitCurrentP1',
+	51 => 'offlineMaxCircuitCurrentP2',
+	52 => 'offlineMaxCircuitCurrentP3',
+	119 => 'errorCode',
+	230 => 'eqAvailableCurrentP1',
+	231 => 'eqAvailableCurrentP2',
+	232 => 'eqAvailableCurrentP3',
+	115 => 'deratedCurrent',
+	116 => 'deratingActive',
+	250 => 'connectedToCloud'
+];
 
+$config = json_decode(file_get_contents($file_config), true);
+if (!is_array($config)) { $config = []; }
+$cfgObsIds = isset($config['observation_ids']) ? trim($config['observation_ids']) : '';
 
 if ($_POST) {
-	if ($_POST['return_json'] == "on") { $return_json = "1"; } else { $return_json = "0"; }
-	if ($_POST['return_mqtt'] == "on") { $return_mqtt = "1"; } else { $return_mqtt = "0"; }
-	if ($_POST['return_udp'] == "on") { $return_udp = "1"; } else { $return_udp = "0"; }
-
-unlink ($file_token);
-	$data='{
-		"user": {
-			"username": "'.$_POST['username'].'",
-			"password": "'.$_POST['password'].'"
-		},
-		"miniserver": {
-			"ip": "'.$_POST['miniserver'].'",
-			"port": "'.$_POST['udpport'].'"
-		},
-		"send_html": "0",
-		"send_udp": "'.$return_udp.'",
-		"send_json": "'.$return_json.'",
-		"send_mqtt": "'.$return_mqtt.'"
-	}';
-
-	$handle = fopen ( $file_config, "w" ); 
-	fwrite ( $handle, $data );
-	fclose ( $handle );
-	get_token($url_base, $url_tocken, $file_token, $_POST['username'], $_POST['password']);
-	header("Location: timer.php");
+	$selectedIds = isset($_POST['observation_ids']) && is_array($_POST['observation_ids']) ? $_POST['observation_ids'] : [];
+	$selectedIds = array_values(array_unique(array_filter(array_map('intval', $selectedIds), function ($id) use ($observationOptions) {
+		return isset($observationOptions[$id]);
+	})));
+	if (empty($selectedIds)) {
+		$config['observation_ids'] = 'none';
+	} else {
+		$orderedSelectedIds = [];
+		foreach (array_keys($observationOptions) as $id) {
+			if (in_array($id, $selectedIds)) { $orderedSelectedIds[] = $id; }
+		}
+		$config['observation_ids'] = implode(',', $orderedSelectedIds);
 	}
+	file_put_contents($file_config, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+	$cfgObsIds = $config['observation_ids'];
+}
 
-$config      = json_decode(file_get_contents($file_config), true);
-$token       = json_decode(file_get_contents($file_token), true);
-$token_str   = file_get_contents($file_token);
-
-$url_get_chargers = '/api/chargers';
-$data = get_req($url_base, $url_get_chargers, $token['accessToken']);
-
-$ii=1;
-foreach ($data as $datakey => $dataval) {
-	$url  = '/api/chargers/' . $dataval["id"] . '/site';
-	$data2 = get_req($url_base, $url, $token['accessToken']);
-	${'sid_' . $ii}  = $data2['circuits'][0]['id'];
-	${'cid_' . $ii}  = $data2['circuits'][0]['siteId'];
-	$ii++;
+if ($cfgObsIds === '') {
+	$selectedObsIds = $defaultObsIds;
+} elseif (strtolower($cfgObsIds) === 'all') {
+	$selectedObsIds = array_keys($observationOptions);
+} elseif (strtolower($cfgObsIds) === 'none') {
+	$selectedObsIds = [];
+} else {
+	$parts = preg_split('/\s*,\s*/', $cfgObsIds, -1, PREG_SPLIT_NO_EMPTY);
+	$selectedObsIds = array_values(array_unique(array_filter(array_map('intval', $parts), function ($id) use ($observationOptions) {
+		return isset($observationOptions[$id]);
+	})));
 }
 
 $template_title = "EaseeHome";
@@ -65,6 +106,8 @@ $navbar[1]['Name'] = $L['NAVBAR.FIRST'];
 $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = $L['NAVBAR.SECOND'];
 $navbar[2]['URL'] = 'log.php';
+$navbar[3]['Name'] = $L['NAVBAR.THIRD'];
+$navbar[3]['URL'] = 'queries.php';
 
 // NAVBAR
 $navbar[1]['active'] = True;
@@ -75,56 +118,43 @@ echo '<img src="logo.png" alt="Easee Home">';
 echo '<p>'. $L['MAIN.INTRO1']. '</p>';
 echo '<br>';
 echo '<form action="index.php" method="post">';
-  //GATEWAYS
-  echo '<p class="wide">'. $L['USER.HEAD']. '</p>';
-  echo '<label for="port">'. $L['USER.USER'].'</label>';
-  echo'<input data-inline="true" data-mini="true" name="username" id="username"  value="'. $config['user']['username']. '" type="text">';
-  echo '<label for="port">'. $L['USER.PASS'].'</label>';
-  echo'<input data-inline="true" data-mini="true" name="password" id="password"  value="'. $config['user']['password']. '" type="password">'; 
-  if(strpos($token_str, 'accessToken') === false){
-  echo '<a style="color:red;">'.$L['MAIN.TOKENERROR'].'</a><br><br><br>';
-  log_e($token, $url_tocken, $file_log_e);
-  } else {
-	  if ($_POST) {
-	  $text='New Token created.';
-	  log_i($text, $url_tocken, $file_log_i);
-	  }
-	  echo '<a style="color:green;">'.$L['MAIN.TOKENOK'].'</a><br><br><br>';
-
-	  echo '<p class="wide">'. $L['WALLBOX.HEAD']. '</p>';
-	  $i=1;
-	  foreach ($data as $datakey => $dataval) {
-		echo '<b>'.$i.'</b> - '.$L['WALLBOX.NAME'].': <b>'.$dataval["name"] . ' / </b>'.$L['WALLBOX.ID'].': <b>'. $dataval["id"].'</b> (Site-ID: '.${'sid_' . $i}.' / Circuit-ID: '.${'cid_' . $i}.')<br>';
-		$i++;
-		}
-	echo '<br><br>';
-  }
-  echo '<p class="wide">'. $L['MINISERVER.HEAD']. '</p>';
-//MiniServers 
-$ms = LBSystem::get_miniservers();
-foreach ($ms as $element) { if ($element['IPAddress'] == $config['miniserver']['ip']) { $miniserver_name= $element['Name']; }}
-if (!is_array($ms)) {
-    echo $L['MINISERVER.NOMS'];
-} else {
-	echo '<label for="miniserver">'.$L['MINISERVER.CHOOSE'].'</label>';
-	echo '<select name= "miniserver" id="miniserver">';
-	echo '<option select value="'.$config['miniserver']['ip'].'">'.$miniserver_name.'</option>';
-	echo '<option></option>';
-	foreach ($ms as $miniserver) {
-	echo '<option value="'.$miniserver['IPAddress'].'">'.$miniserver['Name'].'</option>';
-	}	
-	echo '</select>';
+echo '<p class="wide">'. $L['OBSERVATION.HEAD']. '</p>';
+echo '<p><a style="color:#c05020;">'.$L['OBSERVATION.ALL_WARNING'].'</a></p>';
+echo '<div style="margin-bottom:10px;">';
+echo '<button type="button" data-mini="true" data-inline="true" onclick="setObsPreset(\'none\')">'.$L['OBSERVATION.PRESET_NONE'].'</button>';
+echo '<button type="button" data-mini="true" data-inline="true" onclick="setObsPreset(\'standard\')">'.$L['OBSERVATION.PRESET_STANDARD'].'</button>';
+echo '<button type="button" data-mini="true" data-inline="true" onclick="setObsPreset(\'all\')">'.$L['OBSERVATION.PRESET_ALL'].'</button>';
+echo '</div>';
+echo '<fieldset data-role="controlgroup">';
+foreach ($observationOptions as $obsId => $obsName) {
+	$checkboxId = 'obsid_' . $obsId;
+	$isChecked = in_array($obsId, $selectedObsIds);
+	echo '<input type="checkbox" id="'.$checkboxId.'" class="obs-id-box" name="observation_ids[]" value="'.$obsId.'"';
+	if ($isChecked) { echo ' checked'; }
+	echo '>';
+	echo '<label for="'.$checkboxId.'">'.$obsId.' - '.$obsName.'</label>';
 }
-echo '<br><br><p class="wide">'. $L['RETURN.HEAD']. '</p>';
-echo '<label for="return_mqtt">'.$L['RETURN.MQTT'].'</label>';
-echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if ($config['send_mqtt'] > 0) { echo"checked"; }; echo '>';
-echo '<label for="return_json">'.$L['RETURN.JSON'].'</label>';
-echo '<input type="checkbox" id="return_json" name="return_json"'; if ($config['send_json'] > 0) { echo"checked"; }; echo '>';
-echo '<label for="return_udp">'.$L['RETURN.UDP'].'</label>';
-echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo"checked"; }; echo '>';
-echo '<label for="port">'. $L['RETURN.UDP_PORT'].'</label>';
-echo '<input data-inline="true"  data-mini="true" name="udpport" id="udpport"  value='. $config['miniserver']['port']. ' type="text">';
+echo '</fieldset>';
+echo '<p>'.$L['OBSERVATION.ID_LIST_LABEL'].': '.implode(', ', array_keys($observationOptions)).'</p>';
 echo '<br><p><center><input data-role="button" data-inline="true" data-mini="true" type="submit" name="save_new" data-icon="check" value='.$L['MAIN.SAVE'].'> </center></p>';
 echo '</form>';
+echo '<script>
+var standardObsIds = ['.implode(',', $defaultObsIds).'];
+function setObsPreset(mode) {
+	var boxes = document.querySelectorAll(".obs-id-box");
+	boxes.forEach(function(box) { box.checked = false; });
+	if (mode === "all") {
+		boxes.forEach(function(box) { box.checked = true; });
+		return;
+	}
+	if (mode === "standard") {
+		boxes.forEach(function(box) {
+			if (standardObsIds.indexOf(parseInt(box.value, 10)) !== -1) {
+				box.checked = true;
+			}
+		});
+	}
+}
+</script>';
 LBWeb::lbfooter();
 ?>

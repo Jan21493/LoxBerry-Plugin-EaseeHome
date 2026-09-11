@@ -15,6 +15,8 @@ $navbar[1]['URL'] = 'index.php';
 
 $navbar[2]['Name'] = $L['NAVBAR.SECOND'];
 $navbar[2]['URL'] = 'log.php';
+$navbar[3]['Name'] = $L['NAVBAR.THIRD'];
+$navbar[3]['URL'] = 'queries.php';
 
 
 // NAVBAR
@@ -28,6 +30,10 @@ echo '<p class="wide">'. $L['LOGFILES.HEAD']. '</p>';
 if ($handle = opendir($lbplogdir)) {
     while (false !== ($entry = readdir($handle))) {
         if ($entry != "." && $entry != "..") {
+          $lowerEntry = strtolower($entry);
+          if (strpos($lowerEntry, 'token.ini') !== false || strpos($lowerEntry, 'state.log') !== false || strpos($lowerEntry, 'lock-date') !== false) {
+            continue;
+          }
           echo '<div class="ui-corner-all ui-shadow">';
           echo '<a id="btnlogs" data-role="button" href="/admin/system/tools/logfile.cgi?logfile=plugins/easee_home/'. $entry. '&header=html&format=template" target="_blank" data-inline="true" data-mini="true">'.$entry. '</a>';
           echo '</div>';
@@ -38,4 +44,3 @@ if ($handle = opendir($lbplogdir)) {
 
 LBWeb::lbfooter();
 ?>
-
