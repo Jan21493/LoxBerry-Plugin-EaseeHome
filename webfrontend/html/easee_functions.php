@@ -285,9 +285,18 @@ function easee_get_requested_observation_ids($configuredObservationIds, $availab
     }
 
     $parts = preg_split('/\s*,\s*/', $configuredObservationIds, -1, PREG_SPLIT_NO_EMPTY);
-    $requested = array_values(array_unique(array_filter(array_map('intval', $parts), function ($id) use ($availableDefinitions) {
-        return $id > 0 && isset($availableDefinitions[$id]);
-    })));
+    $requested = array();
+    foreach ($parts as $part) {
+        $part = trim($part);
+        if (!ctype_digit($part)) {
+            continue;
+        }
+        $id = intval($part);
+        if ($id > 0 && isset($availableDefinitions[$id])) {
+            $requested[] = $id;
+        }
+    }
+    $requested = array_values(array_unique($requested));
 
     if (empty($requested)) {
         return $defaultObservationIds;
