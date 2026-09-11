@@ -270,6 +270,7 @@ switch ($do) {
         $idToFieldMap = array();
         foreach ($observationDefinitions as $observationId => $definition) {
             $idToFieldMap[$observationId] = $definition['parameter'];
+        }
 
         // Which observation IDs to request is configurable via the easee_config.ini
         // key "observation_ids":
@@ -555,7 +556,7 @@ switch ($do) {
         $hys_3to1 = isset($_GET['hys3to1']) ? intval($_GET['hys3to1']) : 0;
         
         $now = time();
-k        // Keep the latest phase and switch timestamp in log directory.
+        // Keep the latest phase and switch timestamp in log directory.
         $state_file = $lbplogdir . "/easee_" . $chargerId . "_state.log";
 
         // Use defaults if state file does not exist or cannot be parsed.
