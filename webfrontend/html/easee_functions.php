@@ -319,6 +319,15 @@ function easee_update_charger_status($lbplogdir, $chargerId, $statusPatch)
     }
 
     $statusFile = easee_get_status_file($lbplogdir, $chargerId);
+    $lockHandle = fopen($statusFile . '.lock', 'c');
+    if ($lockHandle === false) {
+        return false;
+    }
+    if (!flock($lockHandle, LOCK_EX)) {
+        fclose($lockHandle);
+        return false;
+    }
+
     $statusData = array();
     if (file_exists($statusFile)) {
         $stored = json_decode(file_get_contents($statusFile), true);
@@ -331,8 +340,18 @@ function easee_update_charger_status($lbplogdir, $chargerId, $statusPatch)
     $statusData['chargerId'] = (string)$chargerId;
     $statusData['updatedAtIso'] = isset($statusPatch['updatedAtIso']) ? $statusPatch['updatedAtIso'] : gmdate('c');
 
-    file_put_contents($statusFile, json_encode($statusData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    return true;
+    $encoded = json_encode($statusData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    $tempFile = tempnam($lbplogdir, 'easee_status_');
+    $updated = $encoded !== false
+        && $tempFile !== false
+        && file_put_contents($tempFile, $encoded, LOCK_EX) !== false
+        && rename($tempFile, $statusFile);
+    if ($tempFile !== false && file_exists($tempFile)) {
+        unlink($tempFile);
+    }
+    flock($lockHandle, LOCK_UN);
+    fclose($lockHandle);
+    return $updated;
 }
 
 // Read all persisted charger status files.
