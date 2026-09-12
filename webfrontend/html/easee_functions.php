@@ -599,18 +599,50 @@ function easee_get_cache_file($lbplogdir, $scopeId, $cacheKey)
 
 // Persist the JSON response of a plugin call so the GUI can show the status
 // without sending additional requests to the Easee Cloud API.
-function easee_cache_response($lbplogdir, $scopeId, $cacheKey, $payload, $context = array())
+function easee_cache_response($lbplogdir, $scopeId, $cacheKey, $payload, $context = array(), $mergeWithPrevious = false)
 {
     if (empty($scopeId) || empty($cacheKey)) {
         return false;
     }
 
+    $context = is_array($context) ? $context : array();
+    $now = time();
+
+    // Remember per field when it was last actually fetched. Together with the
+    // merge below this makes values from an earlier call recognisable.
+    $fieldFetchedAt = array();
+    if (is_array($payload)) {
+        foreach (array_keys($payload) as $fieldKey) {
+            $fieldFetchedAt[$fieldKey] = $now;
+        }
+    }
+
+    // Merging keeps values of fields that a previous call requested but the
+    // current one did not (e.g. a smaller set of observation ids). Each field
+    // keeps its own observation timestamp, so stale values stay recognisable.
+    if ($mergeWithPrevious) {
+        $previous = easee_read_cached_response($lbplogdir, $scopeId, $cacheKey);
+        if (is_array($previous) && isset($previous['data']) && is_array($previous['data']) && is_array($payload)) {
+            $payload = array_merge($previous['data'], $payload);
+            if (isset($previous['context']['observationTimestamps']) && is_array($previous['context']['observationTimestamps'])) {
+                $newTimestamps = (isset($context['observationTimestamps']) && is_array($context['observationTimestamps']))
+                    ? $context['observationTimestamps']
+                    : array();
+                $context['observationTimestamps'] = array_merge($previous['context']['observationTimestamps'], $newTimestamps);
+            }
+            if (isset($previous['context']['fieldFetchedAt']) && is_array($previous['context']['fieldFetchedAt'])) {
+                $fieldFetchedAt = array_merge($previous['context']['fieldFetchedAt'], $fieldFetchedAt);
+            }
+        }
+        $context['fieldFetchedAt'] = $fieldFetchedAt;
+    }
+
     $entry = array(
         'scopeId' => (string)$scopeId,
         'key' => (string)$cacheKey,
-        'fetchedAtEpoch' => time(),
+        'fetchedAtEpoch' => $now,
         'fetchedAtIso' => date('c'),
-        'context' => is_array($context) ? $context : array(),
+        'context' => $context,
         'data' => $payload
     );
 

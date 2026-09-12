@@ -795,7 +795,17 @@ if (in_array((string)$do, $cacheable_commands, true)) {
     if (is_array($cache_context_extra) && !empty($cache_context_extra)) {
         $cache_context = array_merge($cache_context, $cache_context_extra);
     }
-    easee_cache_response($lbplogdir, $cache_scope, $do, isset($data) ? $data : null, $cache_context);
+    // Observation based responses are merged so that values of a previous call
+    // with a larger set of observation ids are not lost.
+    $merge_commands = array('state', 'poll_all');
+    easee_cache_response(
+        $lbplogdir,
+        $cache_scope,
+        $do,
+        isset($data) ? $data : null,
+        $cache_context,
+        in_array((string)$do, $merge_commands, true)
+    );
 }
 
 if ($query_view) {
