@@ -109,7 +109,6 @@ if (!empty($do)) {
 //Check ID / VALUE
 $do_id = array(
     "site",
-	"sites",
 	"config",
 	"circuits",
 	"post_dynamicCurrent",
