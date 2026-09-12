@@ -281,14 +281,16 @@ echo '<fieldset style="margin-bottom:12px; padding:10px;">';
 echo '<div style="margin-top:6px;">';
 echo '<button type="button" id="observation-preset-none" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_NONE'] . '</button> ';
 echo '<button type="button" id="observation-preset-standard" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_STANDARD'] . '</button> ';
+echo '<button type="button" id="observation-preset-status" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_STATUS'] . '</button> ';
 echo '<button type="button" id="observation-preset-all" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_ALL'] . '</button>';
 echo '</div>';
-echo '<small>' . $L['OBSERVATION.ALL_WARNING'] . '</small>';
+echo '<small>' . $L['OBSERVATION.PRESET_STATUS_HINT'] . '</small>';
+echo '<br><small>' . $L['OBSERVATION.ALL_WARNING'] . '</small>';
 echo '<br><br><label>' . $L['OBSERVATIONS.LIST_LABEL'] . '</label>';
 $grouped_observation_ids = array();
 foreach ($observation_groups as $group) {
     echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
-    echo '<b>' . $group['label'] . '</b>';
+    echo '<h3 style="font-size:16px;font-weight:bold;margin:0 0 6px;">' . $group['label'] . '</h3>';
     foreach ($group['ids'] as $observation_id) {
         if (!isset($observation_definitions[$observation_id])) {
             continue;
@@ -312,7 +314,7 @@ foreach ($observation_definitions as $observation_id => $definition) {
 }
 if (!empty($other_observation_ids)) {
     echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
-    echo '<b>' . $L['OBSERVATIONS.GROUP_OTHER'] . '</b>';
+    echo '<h3 style="font-size:16px;font-weight:bold;margin:0 0 6px;">' . $L['OBSERVATIONS.GROUP_OTHER'] . '</h3>';
     foreach ($other_observation_ids as $observation_id) {
         $definition = $observation_definitions[$observation_id];
         $is_checked = isset($selected_observation_lookup[$observation_id]) ? ' checked' : '';
@@ -331,10 +333,12 @@ echo '</fieldset>';
 echo '<br><p><center><input data-role="button" data-inline="true" data-mini="true" type="submit" name="save_new" data-icon="check" value="' . $L['MAIN.SAVE'] . '"> </center></p>';
 echo '</form>';
 echo '<script>';
-echo 'document.addEventListener("DOMContentLoaded", function () {';
+echo '(function () {';
+echo '  var init = function () {';
 echo '  var output = document.getElementById("observation_ids");';
 echo '  var checkboxes = document.querySelectorAll(".observation-checkbox");';
-echo '  var defaultIds = {"31":true,"103":true,"109":true,"120":true,"121":true,"122":true,"124":true,"250":true};';
+echo '  var defaultIds = ' . json_encode(array_fill_keys(array_map('strval', easee_get_default_observation_ids()), true)) . ';';
+echo '  var statusIds = ' . json_encode(array_fill_keys(array_map('strval', easee_get_status_observation_ids()), true)) . ';';
 echo '  var refreshCheckboxUi = function (checkbox) {';
 echo '    if (window.jQuery && typeof jQuery === "function" && jQuery(checkbox).checkboxradio) {';
 echo '      try { jQuery(checkbox).checkboxradio("refresh"); } catch (e) {}';
@@ -348,6 +352,8 @@ echo '      } else if (preset === "all") {';
 echo '        checkboxes[i].checked = true;';
 echo '      } else if (preset === "standard") {';
 echo '        checkboxes[i].checked = !!defaultIds[checkboxes[i].value];';
+echo '      } else if (preset === "status") {';
+echo '        checkboxes[i].checked = !!statusIds[checkboxes[i].value];';
 echo '      }';
 echo '      refreshCheckboxUi(checkboxes[i]);';
 echo '    }';
@@ -368,9 +374,16 @@ echo '    checkboxes[i].addEventListener("change", syncSelectedIds);';
 echo '  }';
 echo '  document.getElementById("observation-preset-none").addEventListener("click", function () { applyPreset("none"); });';
 echo '  document.getElementById("observation-preset-standard").addEventListener("click", function () { applyPreset("standard"); });';
+echo '  document.getElementById("observation-preset-status").addEventListener("click", function () { applyPreset("status"); });';
 echo '  document.getElementById("observation-preset-all").addEventListener("click", function () { applyPreset("all"); });';
 echo '  syncSelectedIds();';
-echo '});';
+echo '  };';
+echo '  if (document.readyState === "loading") {';
+echo '    document.addEventListener("DOMContentLoaded", init);';
+echo '  } else {';
+echo '    init();';
+echo '  }';
+echo '})();';
 echo '</script>';
 LBWeb::lbfooter();
 ?>

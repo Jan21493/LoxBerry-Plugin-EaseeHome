@@ -34,13 +34,8 @@ foreach (array_keys($chargerStatus) as $scopeId) {
 $chargerIds = array_keys($chargerIds);
 sort($chargerIds);
 
-// Observation ids that the status page can display. Ids that are not polled
-// are reported to the user so missing values can be explained.
-$statusObservationIds = array(
-    21, 30, 31, 38, 45, 46, 47, 48, 73, 74, 75, 80, 89, 96, 100, 102, 103, 104,
-    109, 110, 111, 112, 113, 114, 115, 116, 119, 120, 121, 122, 124, 130, 131,
-    132, 136, 182, 183, 184, 185, 194, 195, 196, 197, 198, 199, 230, 231, 232, 250
-);
+// Only observations that are actually polled are displayed. Fields of ids that
+// are not selected in the settings are dropped instead of showing old values.
 $pluginConfig = json_decode(@file_get_contents($lbpconfigdir . '/easee_config.ini'), true);
 $observationDefinitions = easee_get_observation_definitions();
 $activeObservationIds = easee_get_requested_observation_ids(
@@ -48,8 +43,16 @@ $activeObservationIds = easee_get_requested_observation_ids(
     $observationDefinitions,
     easee_get_default_observation_ids()
 );
-$missingObservationIds = array_values(array_diff($statusObservationIds, $activeObservationIds));
-sort($missingObservationIds);
+$activeObservationFields = array();
+foreach ($activeObservationIds as $activeId) {
+    if (isset($observationDefinitions[$activeId]['parameter'])) {
+        $activeObservationFields[$observationDefinitions[$activeId]['parameter']] = true;
+    }
+}
+// Fields that the state response always contains, independent of observations.
+foreach (array('isOnline', 'latestPulse', 'sentAtTimeLox', 'sentAtTimeISO') as $alwaysField) {
+    $activeObservationFields[$alwaysField] = true;
+}
 
 // ---------------------------------------------------------------------------
 // Helper functions (display only).
@@ -145,20 +148,6 @@ function easee_status_enum_hint($table, $value)
     return isset($decoded['description']) ? $decoded['description'] : '';
 }
 
-// Hint for values that were not part of the latest call but kept from an
-// earlier cached response.
-function easee_status_stale_hint($fieldFetchedAt, $latestFetchEpoch, $field, $L)
-{
-    if (!is_array($fieldFetchedAt) || !isset($fieldFetchedAt[$field])) {
-        return '';
-    }
-    $fieldEpoch = intval($fieldFetchedAt[$field]);
-    if ($fieldEpoch <= 0 || $latestFetchEpoch <= 0 || $fieldEpoch >= ($latestFetchEpoch - 5)) {
-        return '';
-    }
-    return sprintf($L['STATUS.STALE_FIELD'], easee_status_timestamp_text($fieldEpoch, $L));
-}
-
 function easee_status_get($source, $key, $default = null)
 {
     if (!is_array($source) || !array_key_exists($key, $source)) {
@@ -182,7 +171,7 @@ function easee_status_render_group($title, $rows, $hint = '')
     }
 
     echo '<fieldset class="status-card">';
-    echo '<p class="sec-head">' . htmlspecialchars($title, ENT_QUOTES) . '</p>';
+    echo '<h3 class="sec-head">' . htmlspecialchars($title, ENT_QUOTES) . '</h3>';
     if ($hint !== '') {
         echo '<small class="status-hint">' . $hint . '</small>';
     }
@@ -224,9 +213,9 @@ echo '<img src="logo.png" alt="Easee Home">';
 
 echo '<style>'
     . '.status-card{margin-bottom:12px;padding:10px;}'
-    . '.sec-head{font-size:11px;font-weight:bold;color:#777;text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px;}'
+    . 'h3.sec-head{font-size:17px;font-weight:bold;color:#333;margin:0 0 8px;line-height:1.3;}'
     . '.status-table{width:100%;border-collapse:collapse;font-size:13px;}'
-    . '.status-table th{text-align:left;font-weight:normal;color:#555;width:45%;vertical-align:top;padding:3px 8px 3px 0;border-bottom:1px solid #eee;}'
+    . '.status-table th{text-align:left;font-weight:normal;color:#555;width:45%;vertical-align:top;padding:4px 8px 4px 0;border-bottom:1px solid #eee;}'
     . '.status-table td{text-align:left;font-weight:bold;vertical-align:top;padding:3px 0;border-bottom:1px solid #eee;}'
     . '.status-hint{color:#777;font-weight:normal;}'
     . '.status-headline{border-radius:8px;padding:12px 14px;margin:0 0 12px;color:#fff;}'
@@ -234,37 +223,22 @@ echo '<style>'
     . '.status-headline .hl-sub{font-size:13px;opacity:.95;margin-top:4px;}'
     . '.hl-green{background:#1a7f37;}.hl-orange{background:#bf8700;}.hl-blue{background:#0079c1;}'
     . '.hl-red{background:#b42318;}.hl-grey{background:#6e7781;}'
-    . '.charger-head{font-size:17px;font-weight:bold;margin:18px 0 8px;}'
+    . 'h1.status-h1{font-size:26px;font-weight:bold;margin:0 0 6px;}h2.charger-head{font-size:21px;font-weight:bold;margin:22px 0 10px;}'
     . '.status-raw pre{white-space:pre-wrap;word-break:break-word;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:8px;font-size:12px;margin:6px 0 0;}'
     . '.status-raw summary{cursor:pointer;font-size:13px;padding:4px 0;}'
     . '.status-toolbar{margin-bottom:10px;font-size:13px;}'
     . '</style>';
 
-echo '<p class="wide">' . $L['STATUS.HEAD'] . '</p>';
+echo '<h1 class="status-h1">' . $L['STATUS.HEAD'] . '</h1>';
 echo '<p><small>' . $L['STATUS.INTRO'] . '</small></p>';
 
 echo '<div class="status-toolbar">';
 echo '<button type="button" data-inline="true" data-mini="true" onclick="window.location.reload();">' . $L['STATUS.REFRESH'] . '</button> ';
 echo '<label style="display:inline-block;margin-left:8px;"><input type="checkbox" id="status-autorefresh"> ' . $L['STATUS.AUTOREFRESH'] . '</label>';
-echo '<br><small class="status-hint">' . $L['STATUS.GENERATED'] . ': ' . date('Y-m-d H:i:s') . '</small>';
+echo '<br><small class="status-hint">' . $L['STATUS.GENERATED'] . ': ' . date('Y-m-d H:i:s')
+    . ' <span id="status-countdown"></span></small>';
 echo '</div>';
 
-if (!empty($missingObservationIds)) {
-    $missingList = array();
-    foreach ($missingObservationIds as $missingId) {
-        $missingName = isset($observationDefinitions[$missingId]['parameter'])
-            ? $observationDefinitions[$missingId]['parameter']
-            : '';
-        $missingList[] = $missingId . ($missingName !== '' ? ' (' . $missingName . ')' : '');
-    }
-    echo '<fieldset class="status-card">';
-    echo '<p class="sec-head">' . $L['STATUS.MISSING_OBS'] . '</p>';
-    echo '<small class="status-hint">' . $L['STATUS.MISSING_OBS_HINT'] . '</small>';
-    echo '<details class="status-raw"><summary>' . sprintf($L['STATUS.MISSING_OBS_COUNT'], count($missingObservationIds)) . '</summary>';
-    echo '<p><small>' . htmlspecialchars(implode(', ', $missingList), ENT_QUOTES) . '</small></p>';
-    echo '</details>';
-    echo '</fieldset>';
-}
 
 if (empty($chargerIds)) {
     echo '<fieldset class="status-card">';
@@ -293,10 +267,14 @@ foreach ($chargerIds as $chargerId) {
     $observationTimestamps = (isset($cache['state']['context']['observationTimestamps']) && is_array($cache['state']['context']['observationTimestamps']))
         ? $cache['state']['context']['observationTimestamps']
         : array();
-    $fieldFetchedAt = (isset($cache['state']['context']['fieldFetchedAt']) && is_array($cache['state']['context']['fieldFetchedAt']))
-        ? $cache['state']['context']['fieldFetchedAt']
-        : array();
-    $latestStateFetch = isset($cache['state']['fetchedAtEpoch']) ? intval($cache['state']['fetchedAtEpoch']) : 0;
+    // Only observations that are currently polled are shown. Values of ids that
+    // are no longer selected are dropped instead of displaying outdated data.
+    foreach (array_keys($state) as $stateField) {
+        if (!isset($activeObservationFields[$stateField])) {
+            unset($state[$stateField]);
+            unset($observationTimestamps[$stateField]);
+        }
+    }
 
     // Session data is stored with a "latest_"/"ongoing_" prefix by easee.php.
     $latestSession = array();
@@ -309,7 +287,7 @@ foreach ($chargerIds as $chargerId) {
     }
 
     $chargerName = isset($chargerNames[$chargerId]) ? $chargerNames[$chargerId] : '';
-    echo '<div class="charger-head">' . $L['STATUS.CHARGER'] . ': ' . htmlspecialchars(($chargerName !== '' ? $chargerName . ' – ' : '') . $chargerId, ENT_QUOTES) . '</div>';
+    echo '<h2 class="charger-head">' . $L['STATUS.CHARGER'] . ': ' . htmlspecialchars(($chargerName !== '' ? $chargerName . ' – ' : '') . $chargerId, ENT_QUOTES) . '</h2>';
 
     // -----------------------------------------------------------------------
     // Headline: what is the charger doing right now?
@@ -383,23 +361,23 @@ foreach ($chargerIds as $chargerId) {
     // -----------------------------------------------------------------------
     $reasonNoCurrent = easee_status_get($state, 'reasonForNoCurrent');
     easee_status_render_group($L['STATUS.GROUP_CHARGING'], array(
-        array($L['STATUS.OP_MODE'], $headlineMain, easee_status_enum_hint('opMode', $opModeInt) . easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'chargerOpMode', $L)),
+        array($L['STATUS.OP_MODE'], $headlineMain, easee_status_enum_hint('opMode', $opModeInt)),
         array($L['STATUS.CHARGING_NOW'], ($opModeInt === null) ? null : ($isCharging ? $L['STATUS.VAL_YES'] : $L['STATUS.VAL_NO'])),
         array($L['STATUS.CABLE_CONNECTED'], ($cableConnected === null) ? null : ($cableConnected ? $L['STATUS.VAL_YES'] : $L['STATUS.VAL_NO'])),
-        array($L['STATUS.CABLE_LOCKED'], easee_status_bool_text(easee_status_get($state, 'cableLocked'), $L), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'cableLocked', $L)),
-        array($L['STATUS.CABLE_RATING'], easee_status_number_text(easee_status_get($state, 'cableRating'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'cableRating', $L)),
-        array($L['STATUS.TOTAL_POWER'], easee_status_number_text($totalPower, 'kW', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'totalPower', $L)),
-        array($L['STATUS.OUTPUT_CURRENT'], $outputCurrentText, easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'outputCurrent', $L)),
+        array($L['STATUS.CABLE_LOCKED'], easee_status_bool_text(easee_status_get($state, 'cableLocked'), $L)),
+        array($L['STATUS.CABLE_RATING'], easee_status_number_text(easee_status_get($state, 'cableRating'), 'A', 1)),
+        array($L['STATUS.TOTAL_POWER'], easee_status_number_text($totalPower, 'kW', 2)),
+        array($L['STATUS.OUTPUT_CURRENT'], $outputCurrentText),
         array($L['STATUS.PHASE_COUNT'], ($phaseCount === null || $phaseCount === 0) ? null : sprintf($L['STATUS.PHASE_COUNT_TEXT'], $phaseCount), $phaseCountEstimated ? $L['STATUS.PHASE_COUNT_HINT'] : ''),
-        array($L['STATUS.OUTPUT_PHASE'], easee_status_enum_text('outputPhase', $outputPhase, $L), easee_status_enum_hint('outputPhase', $outputPhase) . easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'outputPhase', $L)),
-        array($L['STATUS.SESSION_ENERGY'], easee_status_number_text(easee_status_get($state, 'sessionEnergy'), 'kWh', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'sessionEnergy', $L)),
-        array($L['STATUS.ENERGY_PER_HOUR'], easee_status_number_text(easee_status_get($state, 'energyPerHour'), 'kWh/h', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'energyPerHour', $L)),
-        array($L['STATUS.LIFETIME_ENERGY'], easee_status_number_text(easee_status_get($state, 'lifetimeEnergy'), 'kWh', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'lifetimeEnergy', $L)),
-        array($L['STATUS.REASON_NO_CURRENT'], easee_status_enum_text('reasonForNoCurrent', $reasonNoCurrent, $L), easee_status_enum_hint('reasonForNoCurrent', $reasonNoCurrent) . easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'reasonForNoCurrent', $L)),
-        array($L['STATUS.DERATING'], easee_status_bool_text(easee_status_get($state, 'deratingActive'), $L), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'deratingActive', $L)),
-        array($L['STATUS.DERATED_CURRENT'], easee_status_number_text(easee_status_get($state, 'deratedCurrent'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'deratedCurrent', $L)),
-        array($L['STATUS.ERROR_CODE'], easee_status_get($state, 'errorCode'), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'errorCode', $L)),
-        array($L['STATUS.IS_ENABLED'], easee_status_bool_text(easee_status_get($state, 'isEnabled'), $L), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'isEnabled', $L)),
+        array($L['STATUS.OUTPUT_PHASE'], easee_status_enum_text('outputPhase', $outputPhase, $L), easee_status_enum_hint('outputPhase', $outputPhase)),
+        array($L['STATUS.SESSION_ENERGY'], easee_status_number_text(easee_status_get($state, 'sessionEnergy'), 'kWh', 2)),
+        array($L['STATUS.ENERGY_PER_HOUR'], easee_status_number_text(easee_status_get($state, 'energyPerHour'), 'kWh/h', 2)),
+        array($L['STATUS.LIFETIME_ENERGY'], easee_status_number_text(easee_status_get($state, 'lifetimeEnergy'), 'kWh', 2)),
+        array($L['STATUS.REASON_NO_CURRENT'], easee_status_enum_text('reasonForNoCurrent', $reasonNoCurrent, $L), easee_status_enum_hint('reasonForNoCurrent', $reasonNoCurrent)),
+        array($L['STATUS.DERATING'], easee_status_bool_text(easee_status_get($state, 'deratingActive'), $L)),
+        array($L['STATUS.DERATED_CURRENT'], easee_status_number_text(easee_status_get($state, 'deratedCurrent'), 'A', 1)),
+        array($L['STATUS.ERROR_CODE'], easee_status_get($state, 'errorCode')),
+        array($L['STATUS.IS_ENABLED'], easee_status_bool_text(easee_status_get($state, 'isEnabled'), $L)),
         array($L['STATUS.SMART_CHARGING'], easee_status_bool_text(easee_status_get($state, 'smartCharging'), $L))
     ));
 
@@ -407,24 +385,24 @@ foreach ($chargerIds as $chargerId) {
     // Group: currents and voltages per phase.
     // -----------------------------------------------------------------------
     easee_status_render_group($L['STATUS.GROUP_PHASES'], array(
-        array($L['STATUS.CURRENT_L1'], easee_status_number_text(easee_status_get($state, 'inCurrentT3'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inCurrentT3', $L)),
-        array($L['STATUS.CURRENT_L2'], easee_status_number_text(easee_status_get($state, 'inCurrentT4'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inCurrentT4', $L)),
-        array($L['STATUS.CURRENT_L3'], easee_status_number_text(easee_status_get($state, 'inCurrentT5'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inCurrentT5', $L)),
-        array($L['STATUS.CURRENT_N'], easee_status_number_text(easee_status_get($state, 'inCurrentT2'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inCurrentT2', $L)),
-        array($L['STATUS.VOLTAGE_L1'], easee_status_number_text(easee_status_get($state, 'inVoltageT2T3'), 'V', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inVoltageT2T3', $L)),
-        array($L['STATUS.VOLTAGE_L2'], easee_status_number_text(easee_status_get($state, 'inVoltageT2T4'), 'V', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inVoltageT2T4', $L)),
-        array($L['STATUS.VOLTAGE_L3'], easee_status_number_text(easee_status_get($state, 'inVoltageT2T5'), 'V', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inVoltageT2T5', $L)),
-        array($L['STATUS.VOLTAGE_L1L2'], easee_status_number_text(easee_status_get($state, 'inVoltageT3T4'), 'V', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inVoltageT3T4', $L)),
-        array($L['STATUS.VOLTAGE_L1L3'], easee_status_number_text(easee_status_get($state, 'inVoltageT3T5'), 'V', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inVoltageT3T5', $L)),
-        array($L['STATUS.VOLTAGE_L2L3'], easee_status_number_text(easee_status_get($state, 'inVoltageT4T5'), 'V', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'inVoltageT4T5', $L)),
-        array($L['STATUS.CIRCUIT_CURRENT_L1'], easee_status_number_text(easee_status_get($state, 'circuitTotalPhaseConductorCurrentL1'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'circuitTotalPhaseConductorCurrentL1', $L)),
-        array($L['STATUS.CIRCUIT_CURRENT_L2'], easee_status_number_text(easee_status_get($state, 'circuitTotalPhaseConductorCurrentL2'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'circuitTotalPhaseConductorCurrentL2', $L)),
-        array($L['STATUS.CIRCUIT_CURRENT_L3'], easee_status_number_text(easee_status_get($state, 'circuitTotalPhaseConductorCurrentL3'), 'A', 2), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'circuitTotalPhaseConductorCurrentL3', $L)),
-        array($L['STATUS.DYN_CIRCUIT_P1'], easee_status_number_text(easee_status_get($state, 'dynamicCircuitCurrentP1'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'dynamicCircuitCurrentP1', $L)),
-        array($L['STATUS.DYN_CIRCUIT_P2'], easee_status_number_text(easee_status_get($state, 'dynamicCircuitCurrentP2'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'dynamicCircuitCurrentP2', $L)),
-        array($L['STATUS.DYN_CIRCUIT_P3'], easee_status_number_text(easee_status_get($state, 'dynamicCircuitCurrentP3'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'dynamicCircuitCurrentP3', $L)),
-        array($L['STATUS.EQ_AVAILABLE_P1'], easee_status_number_text(easee_status_get($state, 'eqAvailableCurrentP1'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'eqAvailableCurrentP1', $L)),
-        array($L['STATUS.EQ_AVAILABLE_P2'], easee_status_number_text(easee_status_get($state, 'eqAvailableCurrentP2'), 'A', 1), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'eqAvailableCurrentP2', $L)),
+        array($L['STATUS.CURRENT_L1'], easee_status_number_text(easee_status_get($state, 'inCurrentT3'), 'A', 2)),
+        array($L['STATUS.CURRENT_L2'], easee_status_number_text(easee_status_get($state, 'inCurrentT4'), 'A', 2)),
+        array($L['STATUS.CURRENT_L3'], easee_status_number_text(easee_status_get($state, 'inCurrentT5'), 'A', 2)),
+        array($L['STATUS.CURRENT_N'], easee_status_number_text(easee_status_get($state, 'inCurrentT2'), 'A', 2)),
+        array($L['STATUS.VOLTAGE_L1'], easee_status_number_text(easee_status_get($state, 'inVoltageT2T3'), 'V', 1)),
+        array($L['STATUS.VOLTAGE_L2'], easee_status_number_text(easee_status_get($state, 'inVoltageT2T4'), 'V', 1)),
+        array($L['STATUS.VOLTAGE_L3'], easee_status_number_text(easee_status_get($state, 'inVoltageT2T5'), 'V', 1)),
+        array($L['STATUS.VOLTAGE_L1L2'], easee_status_number_text(easee_status_get($state, 'inVoltageT3T4'), 'V', 1)),
+        array($L['STATUS.VOLTAGE_L1L3'], easee_status_number_text(easee_status_get($state, 'inVoltageT3T5'), 'V', 1)),
+        array($L['STATUS.VOLTAGE_L2L3'], easee_status_number_text(easee_status_get($state, 'inVoltageT4T5'), 'V', 1)),
+        array($L['STATUS.CIRCUIT_CURRENT_L1'], easee_status_number_text(easee_status_get($state, 'circuitTotalPhaseConductorCurrentL1'), 'A', 2)),
+        array($L['STATUS.CIRCUIT_CURRENT_L2'], easee_status_number_text(easee_status_get($state, 'circuitTotalPhaseConductorCurrentL2'), 'A', 2)),
+        array($L['STATUS.CIRCUIT_CURRENT_L3'], easee_status_number_text(easee_status_get($state, 'circuitTotalPhaseConductorCurrentL3'), 'A', 2)),
+        array($L['STATUS.DYN_CIRCUIT_P1'], easee_status_number_text(easee_status_get($state, 'dynamicCircuitCurrentP1'), 'A', 1)),
+        array($L['STATUS.DYN_CIRCUIT_P2'], easee_status_number_text(easee_status_get($state, 'dynamicCircuitCurrentP2'), 'A', 1)),
+        array($L['STATUS.DYN_CIRCUIT_P3'], easee_status_number_text(easee_status_get($state, 'dynamicCircuitCurrentP3'), 'A', 1)),
+        array($L['STATUS.EQ_AVAILABLE_P1'], easee_status_number_text(easee_status_get($state, 'eqAvailableCurrentP1'), 'A', 1)),
+        array($L['STATUS.EQ_AVAILABLE_P2'], easee_status_number_text(easee_status_get($state, 'eqAvailableCurrentP2'), 'A', 1)),
         array($L['STATUS.EQ_AVAILABLE_P3'], easee_status_number_text(easee_status_get($state, 'eqAvailableCurrentP3'), 'A', 1))
     ), $L['STATUS.PHASES_HINT']);
 
@@ -513,14 +491,14 @@ foreach ($chargerIds as $chargerId) {
     $gridType = easee_status_get($chargerConfig, 'detectedPowerGridType');
 
     easee_status_render_group($L['STATUS.GROUP_CONNECTION'], array(
-        array($L['STATUS.ONLINE'], easee_status_bool_text(easee_status_get($state, 'connectedToCloud', easee_status_get($state, 'isOnline')), $L), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'connectedToCloud', $L)),
+        array($L['STATUS.ONLINE'], easee_status_bool_text(easee_status_get($state, 'connectedToCloud', easee_status_get($state, 'isOnline')), $L)),
         array($L['STATUS.RAT'], $ratText),
-        array($L['STATUS.WIFI_RSSI'], easee_status_number_text(easee_status_get($state, 'wiFiRSSI'), 'dBm', 0), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'wiFiRSSI', $L)),
-        array($L['STATUS.CELL_RSSI'], easee_status_number_text(easee_status_get($state, 'cellRSSI'), 'dBm', 0), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'cellRSSI', $L)),
-        array($L['STATUS.LOCAL_RSSI'], easee_status_number_text(easee_status_get($state, 'localRSSI'), 'dBm', 0), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'localRSSI', $L)),
+        array($L['STATUS.WIFI_RSSI'], easee_status_number_text(easee_status_get($state, 'wiFiRSSI'), 'dBm', 0)),
+        array($L['STATUS.CELL_RSSI'], easee_status_number_text(easee_status_get($state, 'cellRSSI'), 'dBm', 0)),
+        array($L['STATUS.LOCAL_RSSI'], easee_status_number_text(easee_status_get($state, 'localRSSI'), 'dBm', 0)),
         array($L['STATUS.WIFI_SSID'], easee_status_get($chargerConfig, 'wiFiSSID')),
-        array($L['STATUS.FIRMWARE'], easee_status_get($state, 'chargerFirmware'), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'chargerFirmware', $L)),
-        array($L['STATUS.LATEST_PULSE'], easee_status_timestamp_text(easee_status_get($state, 'latestPulse'), $L), easee_status_stale_hint($fieldFetchedAt, $latestStateFetch, 'latestPulse', $L)),
+        array($L['STATUS.FIRMWARE'], easee_status_get($state, 'chargerFirmware')),
+        array($L['STATUS.LATEST_PULSE'], easee_status_timestamp_text(easee_status_get($state, 'latestPulse'), $L)),
         array($L['STATUS.GRID_TYPE'], easee_status_enum_text('detectedPowerGridType', $gridType, $L)),
         array($L['STATUS.SITE_NAME'], easee_status_get($site, 'name')),
         array($L['STATUS.SITE_ID'], isset($site['circuits'][0]['siteId']) ? $site['circuits'][0]['siteId'] : null),
@@ -557,7 +535,7 @@ foreach ($chargerIds as $chargerId) {
     // Group: data freshness.
     // -----------------------------------------------------------------------
     echo '<fieldset class="status-card">';
-    echo '<p class="sec-head">' . $L['STATUS.GROUP_FRESHNESS'] . '</p>';
+    echo '<h3 class="sec-head">' . $L['STATUS.GROUP_FRESHNESS'] . '</h3>';
     echo '<small class="status-hint">' . $L['STATUS.FRESHNESS_HINT'] . '</small>';
     echo '<table class="status-table"><tbody>';
     echo '<tr><th>' . $L['STATUS.SOURCE'] . '</th><td>' . $L['STATUS.TIMESTAMP'] . '</td></tr>';
@@ -620,7 +598,7 @@ foreach ($chargerIds as $chargerId) {
     }
     if (!empty($decodedRows)) {
         echo '<fieldset class="status-card">';
-        echo '<p class="sec-head">' . $L['STATUS.GROUP_ENUMS'] . '</p>';
+        echo '<h3 class="sec-head">' . $L['STATUS.GROUP_ENUMS'] . '</h3>';
         echo '<small class="status-hint">' . $L['STATUS.ENUMS_HINT'] . '</small>';
         echo '<table class="status-table"><tbody>';
         foreach ($decodedRows as $decodedRow) {
@@ -638,7 +616,7 @@ foreach ($chargerIds as $chargerId) {
     // -----------------------------------------------------------------------
     if (!empty($cache)) {
         echo '<fieldset class="status-card status-raw">';
-        echo '<p class="sec-head">' . $L['STATUS.GROUP_RAW'] . '</p>';
+        echo '<h3 class="sec-head">' . $L['STATUS.GROUP_RAW'] . '</h3>';
         foreach ($cacheKeys as $cacheKey) {
             $entry = $cache[$cacheKey];
             echo '<details><summary>' . htmlspecialchars($cacheKey, ENT_QUOTES) . '</summary>';
@@ -650,22 +628,62 @@ foreach ($chargerIds as $chargerId) {
 }
 
 echo '<script>';
-echo 'document.addEventListener("DOMContentLoaded", function () {';
-echo '  var box = document.getElementById("status-autorefresh");';
-echo '  if (!box) { return; }';
+echo '(function () {';
+echo '  var KEY = "easeeStatusAutoRefresh";';
+echo '  var INTERVAL = 30000;';
 echo '  var timer = null;';
-echo '  var apply = function () {';
-echo '    if (timer) { window.clearInterval(timer); timer = null; }';
-echo '    if (box.checked) { timer = window.setInterval(function () { window.location.reload(); }, 30000); }';
+echo '  var deadline = 0;';
+echo '  var enabled = function () {';
+echo '    try { return window.localStorage.getItem(KEY) === "1"; } catch (e) { return false; }';
 echo '  };';
-echo '  try { box.checked = window.localStorage.getItem("easeeStatusAutoRefresh") === "1"; } catch (e) {}';
-echo '  if (window.jQuery && jQuery(box).checkboxradio) { try { jQuery(box).checkboxradio("refresh"); } catch (e) {} }';
-echo '  box.addEventListener("change", function () {';
-echo '    try { window.localStorage.setItem("easeeStatusAutoRefresh", box.checked ? "1" : "0"); } catch (e) {}';
+echo '  var render = function () {';
+echo '    var out = document.getElementById("status-countdown");';
+echo '    if (!out) { return; }';
+echo '    if (!timer) { out.textContent = ""; return; }';
+echo '    var left = Math.max(0, Math.round((deadline - new Date().getTime()) / 1000));';
+echo '    out.textContent = ' . json_encode('· ' . $L['STATUS.COUNTDOWN_PREFIX'] . ' ') . ' + left + " s";';
+echo '  };';
+echo '  var stop = function () {';
+echo '    if (timer) { window.clearTimeout(timer); timer = null; }';
+echo '    render();';
+echo '  };';
+echo '  var start = function () {';
+echo '    if (timer) { window.clearTimeout(timer); }';
+echo '    deadline = new Date().getTime() + INTERVAL;';
+echo '    timer = window.setTimeout(function () { window.location.reload(); }, INTERVAL);';
+echo '    render();';
+echo '  };';
+echo '  var apply = function () { if (enabled()) { start(); } else { stop(); } };';
+echo '  var store = function (on) {';
+echo '    try { window.localStorage.setItem(KEY, on ? "1" : "0"); } catch (e) {}';
 echo '    apply();';
-echo '  });';
+echo '  };';
+echo '  window.setInterval(render, 1000);';
 echo '  apply();';
-echo '});';
+echo '  var bind = function () {';
+echo '    var box = document.getElementById("status-autorefresh");';
+echo '    if (!box) { return; }';
+echo '    box.checked = enabled();';
+echo '    if (window.jQuery) {';
+echo '      try { jQuery(box).checkboxradio("refresh"); } catch (e) {}';
+echo '    }';
+echo '    if (!box.getAttribute("data-bound")) {';
+echo '      box.setAttribute("data-bound", "1");';
+echo '      box.addEventListener("change", function () { store(box.checked); });';
+echo '      box.addEventListener("click", function () { store(box.checked); });';
+echo '    }';
+echo '  };';
+echo '  if (document.readyState === "loading") {';
+echo '    document.addEventListener("DOMContentLoaded", bind);';
+echo '  } else {';
+echo '    bind();';
+echo '  }';
+echo '  window.setTimeout(bind, 300);';
+echo '  if (window.jQuery) {';
+echo '    jQuery(document).on("pagecreate pageshow", bind);';
+echo '    jQuery(document).on("change", "#status-autorefresh", function () { store(this.checked); });';
+echo '  }';
+echo '})();';
 echo '</script>';
 
 LBWeb::lbfooter();
