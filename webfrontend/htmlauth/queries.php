@@ -138,7 +138,7 @@ echo '<style>'
 	.'</style>';
 
 // Heading + intro.
-echo '<p class="wide">'.$L['QUERIES.HEAD'].'</p>';
+echo '<h1>'.$L['QUERIES.HEAD'].'</h1>';
 echo '<p><small>'.$L['QUERIES.INTRO'].'</small></p>';
 
 // Command + parameters.
@@ -209,15 +209,15 @@ echo '</form>';
 
 // Loxone Config command.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="sec-head">'.$L['QUERIES.LOX_HEAD'].'</p>';
+echo '<h2>'.$L['QUERIES.LOX_HEAD'].'</h2>';
 echo '<small>'.$L['QUERIES.LOX_HINT'].'</small>';
-echo '<div class="sub-head">'.$L['QUERIES.LOX_BASE'].'</div>';
+echo '<h3>'.$L['QUERIES.LOX_BASE'].'</h3>';
 echo '<div class="cmdbox">';
 echo '<code id="lox-base"></code>';
 echo '<button type="button" data-role="none" class="copy-btn" data-copy-target="lox-base" data-ok="lox-base-ok" title="'.htmlspecialchars($L['QUERIES.COPY'], ENT_QUOTES).'">'.$copy_icon.'</button>';
 echo '<span class="copy-ok" id="lox-base-ok">'.$L['QUERIES.COPIED'].'</span>';
 echo '</div>';
-echo '<div class="sub-head" id="lox-cmd-head">'.$L['QUERIES.LOX_CMD'].'</div>';
+echo '<h3 id="lox-cmd-head">'.$L['QUERIES.LOX_CMD'].'</h3>';
 echo '<div class="cmdbox">';
 echo '<code id="lox-cmd"></code>';
 echo '<button type="button" data-role="none" class="copy-btn" data-copy-target="lox-cmd" data-ok="lox-ok" title="'.htmlspecialchars($L['QUERIES.COPY'], ENT_QUOTES).'">'.$copy_icon.'</button>';
@@ -227,7 +227,7 @@ echo '</fieldset>';
 
 // Easee Cloud API request.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="sec-head">'.$L['QUERIES.API_HEAD'].'</p>';
+echo '<h2>'.$L['QUERIES.API_HEAD'].'</h2>';
 echo '<small>'.$L['QUERIES.API_HINT'].'</small>';
 echo '<div class="cmdbox" style="margin-top:6px;">';
 echo '<code id="api-cmd"></code>';
@@ -238,8 +238,51 @@ echo '</fieldset>';
 
 // Response.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="sec-head">'.$L['QUERIES.RESULT_HEAD'].'</p>';
+echo '<h2>'.$L['QUERIES.RESULT_HEAD'].'</h2>';
 echo '<iframe name="query_result" style="width:100%;min-height:360px;border:1px solid #ccc;background:#fff;"></iframe>';
+echo '</fieldset>';
+
+// --- Virtual inputs in the Loxone Miniserver (MQTT / UDP reference) ---------
+// The parameter list is built client-side from the JSON output of the last
+// executed query (see the response iframe above), preserving its exact order.
+$mqtt_topic = easee_normalize_mqtt_topic(isset($config['mqtt_topic']) ? $config['mqtt_topic'] : 'easee');
+$viDescs = array();
+foreach ($observationDefinitions as $obsId => $obsDef) {
+	$viDescs[$obsDef['parameter']] = $obsDef['description'];
+}
+
+echo '<fieldset style="margin-bottom:12px; padding:10px;">';
+echo '<h2>'.$L['QUERIES.VI_HEAD'].'</h2>';
+echo '<p><small>'.$L['QUERIES.VI_INTRO'].'</small></p>';
+
+// Protocol selection (MQTT recommended / UDP).
+echo '<div class="param-row">';
+echo '<label for="vi-proto">'.$L['QUERIES.VI_PROTOCOL'].'</label>';
+echo '<select name="vi-proto" id="vi-proto">';
+echo '<option value="mqtt">'.$L['QUERIES.VI_MQTT'].'</option>';
+echo '<option value="udp">'.$L['QUERIES.VI_UDP'].'</option>';
+echo '</select>';
+echo '</div>';
+
+// MQTT setup help.
+echo '<div id="vi-setup-mqtt">';
+echo '<h3>'.$L['QUERIES.VI_SETUP_HEAD'].'</h3>';
+echo '<ol class="vi-setup"><li>'.$L['QUERIES.VI_MQTT_SETUP_1'].'</li><li>'.$L['QUERIES.VI_MQTT_SETUP_2'].'</li></ol>';
+echo '</div>';
+
+// UDP setup help.
+echo '<div id="vi-setup-udp" style="display:none;">';
+echo '<h3>'.$L['QUERIES.VI_SETUP_HEAD'].'</h3>';
+echo '<ol class="vi-setup"><li>'.$L['QUERIES.VI_UDP_SETUP_1'].'</li><li>'.$L['QUERIES.VI_UDP_SETUP_2'].'</li>';
+echo '<li>'.$L['QUERIES.VI_UDP_SETUP_3_PRE']
+	.'<a href="'.htmlspecialchars($L['LINKS.UDP_TEMPLATE'], ENT_QUOTES).'" target="_blank" rel="noopener">'.$L['QUERIES.VI_UDP_TEMPLATE_LABEL'].'</a>'
+	.$L['QUERIES.VI_UDP_SETUP_3_POST'].'</li></ol>';
+echo '</div>';
+
+// Parameter list (populated from the JSON output of the executed query).
+echo '<h3>'.$L['QUERIES.VI_PARAMS_HEAD'].'</h3>';
+echo '<p id="vi-hint" class="param-desc">'.$L['QUERIES.VI_HINT'].'</p>';
+echo '<div id="vi-params"></div>';
 echo '</fieldset>';
 
 // Help popup (modal).
@@ -260,6 +303,11 @@ echo 'var DOC_BASE = '.json_encode($doc_base, JSON_UNESCAPED_SLASHES).';';
 echo 'var DOC_FALLBACK = '.json_encode($doc_fallback, JSON_UNESCAPED_SLASHES).';';
 echo 'var DOC_LINK_LABEL = '.json_encode($L['QUERIES.DOC_LINK'], JSON_UNESCAPED_SLASHES).';';
 echo 'var LOX_CMD_VAR = '.json_encode($L['QUERIES.LOX_CMD_VAR'], JSON_UNESCAPED_SLASHES).';';
+echo 'var MQTT_TOPIC = '.json_encode($mqtt_topic, JSON_UNESCAPED_SLASHES).';';
+echo 'var VI_DESCS = '.json_encode($viDescs, JSON_UNESCAPED_SLASHES).';';
+echo 'var VI_COPY_ICON = '.json_encode($copy_icon, JSON_UNESCAPED_SLASHES).';';
+echo 'var VI_COPY_TITLE = '.json_encode($L['QUERIES.COPY'], JSON_UNESCAPED_SLASHES).';';
+echo 'var VI_COPIED = '.json_encode($L['QUERIES.COPIED'], JSON_UNESCAPED_SLASHES).';';
 echo <<<'JS'
 (function () {
 	var doSel = document.getElementById('do');
@@ -453,6 +501,93 @@ echo <<<'JS'
 			}
 		});
 	}
+
+	// --- Virtual inputs (MQTT / UDP), driven by the query result JSON ---------
+	var viProto = document.getElementById('vi-proto');
+	var viSetupMqtt = document.getElementById('vi-setup-mqtt');
+	var viSetupUdp = document.getElementById('vi-setup-udp');
+	var viParamsWrap = document.getElementById('vi-params');
+	var viHint = document.getElementById('vi-hint');
+	var viFrames = document.getElementsByName('query_result');
+	var viFrame = (viFrames && viFrames.length) ? viFrames[0] : null;
+	var viKeys = [];
+
+	function viName(key) {
+		var serial = val(idEl) || '<id>';
+		if (viProto && viProto.value === 'udp') {
+			return serial + '_' + key + '=\\v';
+		}
+		return MQTT_TOPIC + '_' + serial + '_' + key;
+	}
+
+	function viRender() {
+		var isUdp = (viProto && viProto.value === 'udp');
+		if (viSetupMqtt) { viSetupMqtt.style.display = isUdp ? 'none' : ''; }
+		if (viSetupUdp) { viSetupUdp.style.display = isUdp ? '' : 'none'; }
+		if (!viParamsWrap) { return; }
+		if (!viKeys.length) {
+			viParamsWrap.innerHTML = '';
+			if (viHint) { viHint.style.display = ''; }
+			return;
+		}
+		if (viHint) { viHint.style.display = 'none'; }
+		var html = '';
+		for (var i = 0; i < viKeys.length; i++) {
+			var key = viKeys[i];
+			var desc = VI_DESCS[key] ? ' &ndash; ' + escapeHtml(VI_DESCS[key]) : '';
+			html += '<div class="param-row">'
+				+ '<div class="param-desc"><b>' + escapeHtml(key) + '</b>' + desc + '</div>'
+				+ '<div class="cmdbox"><code>' + escapeHtml(viName(key)) + '</code>'
+				+ '<button type="button" data-role="none" class="copy-btn vi-copy" title="' + escapeHtml(VI_COPY_TITLE) + '">' + VI_COPY_ICON + '</button>'
+				+ '<span class="copy-ok vi-ok">' + escapeHtml(VI_COPIED) + '</span></div>'
+				+ '</div>';
+		}
+		viParamsWrap.innerHTML = html;
+	}
+
+	function viExtractKeys() {
+		viKeys = [];
+		try {
+			var doc = viFrame.contentDocument || viFrame.contentWindow.document;
+			var pre = doc ? doc.querySelector('pre') : null;
+			if (pre) {
+				var obj = JSON.parse(pre.textContent || '');
+				if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+					viKeys = Object.keys(obj);
+				}
+			}
+		} catch (e) { viKeys = []; }
+		viRender();
+	}
+
+	if (viFrame) { viFrame.addEventListener('load', viExtractKeys); }
+	if (viProto) { viProto.addEventListener('change', viRender); }
+	if (idEl) {
+		idEl.addEventListener('input', viRender);
+		idEl.addEventListener('change', viRender);
+	}
+	if (viParamsWrap) {
+		viParamsWrap.addEventListener('click', function (e) {
+			var btn = e.target;
+			while (btn && btn !== viParamsWrap && !(btn.classList && btn.classList.contains('vi-copy'))) { btn = btn.parentNode; }
+			if (!btn || btn === viParamsWrap) { return; }
+			var box = btn.parentNode;
+			var code = box.querySelector('code');
+			var ok = box.querySelector('.vi-ok');
+			if (!code) { return; }
+			var text = code.textContent;
+			var done = function () { if (ok) { ok.style.visibility = 'visible'; setTimeout(function () { ok.style.visibility = 'hidden'; }, 1500); } };
+			if (navigator.clipboard && navigator.clipboard.writeText) {
+				navigator.clipboard.writeText(text).then(done, function () {});
+			} else {
+				var ta = document.createElement('textarea');
+				ta.value = text; document.body.appendChild(ta); ta.select();
+				try { document.execCommand('copy'); done(); } catch (err) {}
+				document.body.removeChild(ta);
+			}
+		});
+	}
+	viRender();
 
 	onChange();
 })();
