@@ -132,10 +132,12 @@ function send_udp($id, $message, $ms_ip, $ms_port)
 }
 
 // Send MQTT.
-function send_mqtt($id, $message)
+function send_mqtt($id, $message, $topic = 'easee')
 {
     require_once "loxberry_io.php";
     require_once "phpMQTT.php";
+
+    $topic = easee_normalize_mqtt_topic($topic);
 
     foreach ($message as $i => $value) {
         if (empty($value)) {
@@ -148,12 +150,24 @@ function send_mqtt($id, $message)
     $mqtt = new Bluerhinos\phpMQTT($creds['brokerhost'], $creds['brokerport'], $client_id);
     if ($mqtt->connect(true, null, $creds['brokeruser'], $creds['brokerpass'])) {
         foreach ($message as $x => $val) {
-            $mqtt->publish("easee/" . $id . "/" . $x, $val, 0, 1);
+            $mqtt->publish($topic . "/" . $id . "/" . $x, $val, 0, 1);
         }
         $mqtt->close();
     } else {
         echo "MQTT connection failed";
     }
+}
+
+// Normalize configured MQTT topic (base prefix, no leading/trailing slash, no wildcards).
+function easee_normalize_mqtt_topic($topic)
+{
+    $topic = trim((string)$topic);
+    $topic = str_replace(array('#', '+'), '', $topic);
+    $topic = trim($topic, "/ \t\n\r\0\x0B");
+    if ($topic === '') {
+        return 'easee';
+    }
+    return $topic;
 }
 
 // Convert booleans to numbers.

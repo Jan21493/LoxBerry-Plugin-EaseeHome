@@ -35,6 +35,7 @@ if (!is_array($token)) {
     $token = array();
 }
 $log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
+$mqtt_topic = easee_normalize_mqtt_topic(isset($config['mqtt_topic']) ? $config['mqtt_topic'] : 'easee');
 $max_lifetime = 0;
 $request_context = array(
     'do' => $do,
@@ -181,7 +182,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }		
         break;
     case "chargers":
@@ -203,7 +204,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }		
         break;
     case "config":
@@ -222,7 +223,7 @@ switch ($do) {
             send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
 		if ($config['send_mqtt'] == 1) {
-           $res_mqtt=send_mqtt($chargerId, $data);
+           $res_mqtt=send_mqtt($chargerId, $data, $mqtt_topic);
         }
         if ($config['send_json'] == 1) {
             $res_json=send_json($chargerId, $data);
@@ -246,7 +247,7 @@ switch ($do) {
             send_udp($chargerId, $data, $config['miniserver']['ip'], $config['miniserver']['port']);
         }
 		if ($config['send_mqtt'] == 1) {
-           $res_mqtt=send_mqtt($chargerId, $data);
+           $res_mqtt=send_mqtt($chargerId, $data, $mqtt_topic);
         }
         if ($config['send_json'] == 1) {
             $res_json=send_json($chargerId, $data);
@@ -272,7 +273,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }		
         break;	
     case "state":
@@ -385,7 +386,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }
         $cache_context_extra = array(
             'url' => $url,
@@ -438,7 +439,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }
         break;		
     case "latest":
@@ -473,7 +474,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }		
         break;
     case "ongoing":
@@ -508,7 +509,7 @@ switch ($do) {
             send_json($chargerId, $data);
         }
 		if ($config['send_mqtt'] == 1) {
-            send_mqtt($chargerId, $data);
+            send_mqtt($chargerId, $data, $mqtt_topic);
         }		
         break;
 		
@@ -665,6 +666,7 @@ switch ($do) {
                 'sendUdp' => isset($config['send_udp']) ? $config['send_udp'] : '0',
                 'sendJson' => isset($config['send_json']) ? $config['send_json'] : '0',
                 'sendMqtt' => isset($config['send_mqtt']) ? $config['send_mqtt'] : '0',
+                'mqttTopic' => $mqtt_topic,
                 'observationIds' => isset($config['observation_ids']) ? $config['observation_ids'] : ''
             )
         ), $file_log_i, $file_log_e, $log_level);
