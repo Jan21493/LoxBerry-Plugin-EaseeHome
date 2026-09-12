@@ -37,10 +37,9 @@ sort($chargerIds);
 // Observation ids that the status page can display. Ids that are not polled
 // are reported to the user so missing values can be explained.
 $statusObservationIds = array(
-    21, 30, 31, 38, 45, 46, 47, 48, 89, 96, 100, 102, 103, 104, 109, 110,
-    111, 112, 113, 114, 115, 116, 119, 120, 121, 122, 124, 130, 131, 132, 136,
-    182, 183, 184, 185, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199,
-    230, 231, 232, 250
+    21, 30, 31, 38, 45, 46, 47, 48, 73, 74, 75, 80, 89, 96, 100, 102, 103, 104,
+    109, 110, 111, 112, 113, 114, 115, 116, 119, 120, 121, 122, 124, 130, 131,
+    132, 136, 182, 183, 184, 185, 194, 195, 196, 197, 198, 199, 230, 231, 232, 250
 );
 $pluginConfig = json_decode(@file_get_contents($lbpconfigdir . '/easee_config.ini'), true);
 $observationDefinitions = easee_get_observation_definitions();
