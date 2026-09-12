@@ -122,8 +122,14 @@ $data = get_req($url_base, $url_get_chargers, isset($token['accessToken']) ? $to
 if (!is_array($data)) {
     $data = array();
 }
+// Cache the charger list so the status page can resolve names without an extra API call.
+if (!empty($data)) {
+    easee_cache_response($lbplogdir, easee_get_account_scope(), 'chargers', $data, array(
+        'do' => 'chargers',
+        'url' => $url_get_chargers
+    ));
+}
 
-$charger_status = easee_read_all_charger_status($lbplogdir);
 $observation_definitions = easee_get_observation_definitions();
 ksort($observation_definitions);
 $default_observation_ids = easee_get_default_observation_ids();
@@ -132,19 +138,19 @@ $selected_observation_lookup = array_fill_keys($selected_observation_ids, true);
 $observation_groups = array(
     'charger_control' => array(
         'label' => $L['OBSERVATIONS.GROUP_CHARGER_CONTROL'],
-        'ids' => array(30, 31, 46, 47, 48, 50, 51, 52)
+        'ids' => array(30, 31, 38, 45, 46, 47, 48, 50, 51, 52)
     ),
     'circuit_and_load' => array(
         'label' => $L['OBSERVATIONS.GROUP_CIRCUIT_LOAD'],
-        'ids' => array(70, 71, 72, 73, 74, 75, 111, 112, 113, 230, 231, 232)
+        'ids' => array(21, 70, 71, 72, 73, 74, 75, 111, 112, 113, 230, 231, 232)
     ),
     'charging_state' => array(
         'label' => $L['OBSERVATIONS.GROUP_CHARGING_STATE'],
-        'ids' => array(96, 102, 103, 104, 109, 110, 114, 115, 116, 119, 120, 121, 122, 124, 250)
+        'ids' => array(96, 100, 102, 103, 104, 109, 110, 114, 115, 116, 119, 120, 121, 122, 124, 250)
     ),
     'connectivity' => array(
         'label' => $L['OBSERVATIONS.GROUP_CONNECTIVITY'],
-        'ids' => array(80, 130, 131, 132, 136)
+        'ids' => array(80, 89, 130, 131, 132, 136)
     ),
     'measurements' => array(
         'label' => $L['OBSERVATIONS.GROUP_MEASUREMENTS'],
@@ -159,6 +165,9 @@ foreach ($data as $datakey => $dataval) {
     }
     $url  = '/api/chargers/' . $dataval['id'] . '/site';
     $data2 = get_req($url_base, $url, isset($token['accessToken']) ? $token['accessToken'] : '');
+    if (is_array($data2) && !empty($data2)) {
+        easee_cache_response($lbplogdir, $dataval['id'], 'site', $data2, array('do' => 'site', 'url' => $url));
+    }
     ${'sid_' . $ii} = isset($data2['circuits'][0]['id']) ? $data2['circuits'][0]['id'] : '';
     ${'cid_' . $ii} = isset($data2['circuits'][0]['siteId']) ? $data2['circuits'][0]['siteId'] : '';
     $ii++;
@@ -170,10 +179,12 @@ $helptemplate = "pluginhelp.html";
 
 $navbar[1]['Name'] = $L['NAVBAR.FIRST'];
 $navbar[1]['URL'] = 'index.php';
-$navbar[2]['Name'] = $L['NAVBAR.SECOND'];
-$navbar[2]['URL'] = 'log.php';
-$navbar[3]['Name'] = $L['NAVBAR.THIRD'];
-$navbar[3]['URL'] = 'queries.php';
+$navbar[2]['Name'] = $L['NAVBAR.STATUS'];
+$navbar[2]['URL'] = 'status.php';
+$navbar[3]['Name'] = $L['NAVBAR.SECOND'];
+$navbar[3]['URL'] = 'log.php';
+$navbar[4]['Name'] = $L['NAVBAR.THIRD'];
+$navbar[4]['URL'] = 'queries.php';
 
 // Navbar.
 $navbar[1]['active'] = true;
@@ -208,38 +219,9 @@ if (strpos($token_str, 'accessToken') === false) {
         echo '<b>' . $i . '</b> - ' . $L['WALLBOX.NAME'] . ': <b>' . htmlspecialchars($dataval['name'], ENT_QUOTES) . ' / </b>' . $L['WALLBOX.ID'] . ': <b>' . htmlspecialchars($charger_id, ENT_QUOTES) . '</b>';
         echo ' (' . $L['WALLBOX.SITE_ID'] . ': ' . htmlspecialchars(${'sid_' . $i}, ENT_QUOTES) . ' / ' . $L['WALLBOX.CIRCUIT_ID'] . ': ' . htmlspecialchars(${'cid_' . $i}, ENT_QUOTES) . ')<br>';
 
-        if (isset($charger_status[$charger_id])) {
-            $status = $charger_status[$charger_id];
-            echo '<div style="padding:4px 0 10px 20px;">';
-            echo '<small><b>' . $L['STATUS.HEAD'] . '</b><br>';
-            echo $L['STATUS.UPDATED_AT'] . ': ' . htmlspecialchars(isset($status['updatedAtIso']) ? $status['updatedAtIso'] : '-', ENT_QUOTES) . '<br>';
-
-            if (isset($status['lastState']) && is_array($status['lastState'])) {
-                $last_state = $status['lastState'];
-                echo $L['STATUS.OP_MODE'] . ': ' . htmlspecialchars(isset($last_state['chargerOpMode']) ? strval($last_state['chargerOpMode']) : '-', ENT_QUOTES) . ' | ';
-                echo $L['STATUS.TOTAL_POWER'] . ': ' . htmlspecialchars(isset($last_state['totalPower']) ? strval($last_state['totalPower']) : '-', ENT_QUOTES) . ' | ';
-                echo $L['STATUS.OUTPUT_PHASE'] . ': ' . htmlspecialchars(isset($last_state['outputPhase']) ? strval($last_state['outputPhase']) : '-', ENT_QUOTES) . '<br>';
-            }
-
-            if (isset($status['lastDynamicPowerChange']) && is_array($status['lastDynamicPowerChange'])) {
-                $dynamic_status = $status['lastDynamicPowerChange'];
-                $phase_mode_label = '-';
-                if (isset($dynamic_status['phaseCount']) && intval($dynamic_status['phaseCount']) === 1) {
-                    $phase_mode_label = $L['STATUS.PHASE_SINGLE'];
-                } elseif (isset($dynamic_status['phaseCount']) && intval($dynamic_status['phaseCount']) === 3) {
-                    $phase_mode_label = $L['STATUS.PHASE_THREE'];
-                }
-                echo $L['STATUS.LAST_POWER_UPDATE'] . ': ' . htmlspecialchars(isset($dynamic_status['timestamp']) ? strval($dynamic_status['timestamp']) : '-', ENT_QUOTES) . '<br>';
-                echo $L['STATUS.REQUESTED_POWER'] . ': ' . htmlspecialchars(isset($dynamic_status['requestedPowerKw']) ? strval($dynamic_status['requestedPowerKw']) : '-', ENT_QUOTES) . 'kW | ';
-                echo $L['STATUS.EFFECTIVE_POWER'] . ': ' . htmlspecialchars(isset($dynamic_status['effectivePowerKw']) ? strval($dynamic_status['effectivePowerKw']) : '-', ENT_QUOTES) . 'kW | ';
-                echo $L['STATUS.PHASE_MODE'] . ': ' . htmlspecialchars($phase_mode_label, ENT_QUOTES) . '<br>';
-                echo $L['STATUS.HYSTERESIS'] . ' (1→3/3→1): ' . htmlspecialchars(isset($dynamic_status['hys1to3Seconds']) ? strval($dynamic_status['hys1to3Seconds']) : '-', ENT_QUOTES) . 's / ' . htmlspecialchars(isset($dynamic_status['hys3to1Seconds']) ? strval($dynamic_status['hys3to1Seconds']) : '-', ENT_QUOTES) . 's';
-            }
-            echo '</small></div>';
-        }
-
         $i++;
     }
+    echo '<small>' . $L['WALLBOX.STATUS_HINT'] . '</small>';
     echo '<br><br>';
 }
 echo '</fieldset>';
@@ -299,14 +281,16 @@ echo '<fieldset style="margin-bottom:12px; padding:10px;">';
 echo '<div style="margin-top:6px;">';
 echo '<button type="button" id="observation-preset-none" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_NONE'] . '</button> ';
 echo '<button type="button" id="observation-preset-standard" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_STANDARD'] . '</button> ';
+echo '<button type="button" id="observation-preset-status" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_STATUS'] . '</button> ';
 echo '<button type="button" id="observation-preset-all" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_ALL'] . '</button>';
 echo '</div>';
-echo '<small>' . $L['OBSERVATION.ALL_WARNING'] . '</small>';
+echo '<small>' . $L['OBSERVATION.PRESET_STATUS_HINT'] . '</small>';
+echo '<br><small>' . $L['OBSERVATION.ALL_WARNING'] . '</small>';
 echo '<br><br><label>' . $L['OBSERVATIONS.LIST_LABEL'] . '</label>';
 $grouped_observation_ids = array();
 foreach ($observation_groups as $group) {
     echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
-    echo '<b>' . $group['label'] . '</b>';
+    echo '<h3 style="font-size:16px;font-weight:bold;margin:0 0 6px;">' . $group['label'] . '</h3>';
     foreach ($group['ids'] as $observation_id) {
         if (!isset($observation_definitions[$observation_id])) {
             continue;
@@ -330,7 +314,7 @@ foreach ($observation_definitions as $observation_id => $definition) {
 }
 if (!empty($other_observation_ids)) {
     echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
-    echo '<b>' . $L['OBSERVATIONS.GROUP_OTHER'] . '</b>';
+    echo '<h3 style="font-size:16px;font-weight:bold;margin:0 0 6px;">' . $L['OBSERVATIONS.GROUP_OTHER'] . '</h3>';
     foreach ($other_observation_ids as $observation_id) {
         $definition = $observation_definitions[$observation_id];
         $is_checked = isset($selected_observation_lookup[$observation_id]) ? ' checked' : '';
@@ -349,10 +333,12 @@ echo '</fieldset>';
 echo '<br><p><center><input data-role="button" data-inline="true" data-mini="true" type="submit" name="save_new" data-icon="check" value="' . $L['MAIN.SAVE'] . '"> </center></p>';
 echo '</form>';
 echo '<script>';
-echo 'document.addEventListener("DOMContentLoaded", function () {';
+echo '(function () {';
+echo '  var init = function () {';
 echo '  var output = document.getElementById("observation_ids");';
 echo '  var checkboxes = document.querySelectorAll(".observation-checkbox");';
-echo '  var defaultIds = {"31":true,"103":true,"109":true,"120":true,"121":true,"122":true,"124":true,"250":true};';
+echo '  var defaultIds = ' . json_encode(array_fill_keys(array_map('strval', easee_get_default_observation_ids()), true)) . ';';
+echo '  var statusIds = ' . json_encode(array_fill_keys(array_map('strval', easee_get_status_observation_ids()), true)) . ';';
 echo '  var refreshCheckboxUi = function (checkbox) {';
 echo '    if (window.jQuery && typeof jQuery === "function" && jQuery(checkbox).checkboxradio) {';
 echo '      try { jQuery(checkbox).checkboxradio("refresh"); } catch (e) {}';
@@ -366,6 +352,8 @@ echo '      } else if (preset === "all") {';
 echo '        checkboxes[i].checked = true;';
 echo '      } else if (preset === "standard") {';
 echo '        checkboxes[i].checked = !!defaultIds[checkboxes[i].value];';
+echo '      } else if (preset === "status") {';
+echo '        checkboxes[i].checked = !!statusIds[checkboxes[i].value];';
 echo '      }';
 echo '      refreshCheckboxUi(checkboxes[i]);';
 echo '    }';
@@ -386,9 +374,16 @@ echo '    checkboxes[i].addEventListener("change", syncSelectedIds);';
 echo '  }';
 echo '  document.getElementById("observation-preset-none").addEventListener("click", function () { applyPreset("none"); });';
 echo '  document.getElementById("observation-preset-standard").addEventListener("click", function () { applyPreset("standard"); });';
+echo '  document.getElementById("observation-preset-status").addEventListener("click", function () { applyPreset("status"); });';
 echo '  document.getElementById("observation-preset-all").addEventListener("click", function () { applyPreset("all"); });';
 echo '  syncSelectedIds();';
-echo '});';
+echo '  };';
+echo '  if (document.readyState === "loading") {';
+echo '    document.addEventListener("DOMContentLoaded", init);';
+echo '  } else {';
+echo '    init();';
+echo '  }';
+echo '})();';
 echo '</script>';
 LBWeb::lbfooter();
 ?>
