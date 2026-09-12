@@ -20,6 +20,8 @@ $query_view  = isset($_GET['query_view']) && $_GET['query_view'] === '1';
 if ($query_view) {
     ob_start();
 }
+// Additional context stored together with the cached response of this call.
+$cache_context_extra = array();
 //---------------------------------------------------------------------------------------------------
 // Read config and token files.
 $configRaw = @file_get_contents($file_config);
@@ -326,6 +328,7 @@ switch ($do) {
 
         // Pre-initialize all requested fields with defaults.
         $data = [];
+        $observationTimestamps = [];
         foreach ($requestedIds as $reqId) { if (isset($idToFieldMap[$reqId])) { $data[$idToFieldMap[$reqId]] = 0; } }
         if (!isset($apiResponse['observations']) || !is_array($apiResponse['observations'])) {
             easee_log('error', 'No observations in response', array(
@@ -351,6 +354,9 @@ switch ($do) {
 
             $fieldName = $idToFieldMap[$id];
             $data[$fieldName] = $obs['value'];
+            if (isset($obs['timestamp'])) {
+                $observationTimestamps[$fieldName] = $obs['timestamp'];
+            }
             if ($obs['timestamp']) {
                 if (!isset($data['latestPulse']) || $obs['timestamp'] > $data['latestPulse']) {
                     $data['latestPulse'] = $obs['timestamp'];
@@ -381,6 +387,12 @@ switch ($do) {
 		if ($config['send_mqtt'] == 1) {
             send_mqtt($chargerId, $data);
         }
+        $cache_context_extra = array(
+            'url' => $url,
+            'observationIds' => $requestedIds,
+            'observationTimestamps' => $observationTimestamps
+        );
+        easee_track_output_phase($lbplogdir, $chargerId, isset($data['outputPhase']) ? $data['outputPhase'] : null);
         easee_update_charger_status($lbplogdir, $chargerId, array(
             'updatedAtIso' => currtime(),
             'lastState' => array(
@@ -661,10 +673,39 @@ switch ($do) {
         $url     = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
         $data    = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url, $file_log_e, $file_log_i, $log_level);
+
+        // Track phase switches and hysteresis blocks for the status page.
+        $phase_event_map = array(
+            'switch_to_3_phase' => 'switch_1_to_3',
+            'switch_to_1_phase' => 'switch_3_to_1',
+            'hysteresis_hold_1to3' => 'hold_1_to_3',
+            'hysteresis_hold_3to1' => 'hold_3_to_1'
+        );
+        if (isset($phase_event_map[$phase_switch_reason])) {
+            easee_record_phase_event($lbplogdir, $chargerId, $phase_event_map[$phase_switch_reason], array(
+                'requestedPowerKw' => round($requested_power_kw, 3),
+                'effectivePowerKw' => round(floatval($value), 3),
+                'phaseCount' => $target_phase,
+                'amperePerActivePhase' => $ampere
+            ));
+        }
+
+        $cache_context_extra = array(
+            'requestedPowerKw' => round($requested_power_kw, 3),
+            'effectivePowerKw' => round(floatval($value), 3),
+            'phaseCount' => $target_phase,
+            'amperePerActivePhase' => $ampere,
+            'switchReason' => $phase_switch_reason,
+            'hys1to3Seconds' => $hys_1to3,
+            'hys3to1Seconds' => $hys_3to1,
+            'postBody' => $postdata
+        );
+
         easee_update_charger_status($lbplogdir, $chargerId, array(
             'updatedAtIso' => currtime(),
             'lastDynamicPowerChange' => array(
                 'timestamp' => currtime(),
+                'timestampEpoch' => $now,
                 'requestedPowerKw' => round($requested_power_kw, 3),
                 'effectivePowerKw' => round(floatval($value), 3),
                 'phaseMode' => ($target_phase == 1 ? 'single-phase' : 'three-phase'),
@@ -673,6 +714,7 @@ switch ($do) {
                 'hys1to3Seconds' => $hys_1to3,
                 'hys3to1Seconds' => $hys_3to1,
                 'secondsSinceLastSwitch' => $seconds_since_switch,
+                'lastSwitchEpoch' => intval($state_data['last_switch']),
                 'switchReason' => $phase_switch_reason
             )
         ));
@@ -728,6 +770,32 @@ switch ($do) {
 
 	default:
         echo "!! do is missing !!";
+}
+
+// Cache the JSON response of this call inside the (RAM based) log directory so
+// the status page can show current data without extra Easee API requests.
+$cacheable_commands = array(
+    'sites', 'chargers', 'site', 'config', 'circuits', 'equalizer', 'state', 'latest', 'ongoing',
+    'start_charging', 'stop_charging', 'pause_charging', 'resume_charging',
+    'post_dynamicCurrent', 'post_dynamicPower', 'post_settings', 'post_lock_state', 'lock_state',
+    'override_schedule', 'reboot', 'force_reboot', 'update_firmware', 'poll_all', 'poll_lifetimeenergy'
+);
+if (in_array((string)$do, $cacheable_commands, true)) {
+    $account_scope_commands = array('sites', 'chargers');
+    $cache_scope = in_array((string)$do, $account_scope_commands, true)
+        ? easee_get_account_scope()
+        : $chargerId;
+    $cache_context = array('do' => $do, 'url' => isset($url) ? $url : '');
+    if ($type !== null && $type !== '') {
+        $cache_context['type'] = $type;
+    }
+    if ($value !== null && $value !== '') {
+        $cache_context['value'] = is_array($value) ? implode(',', $value) : $value;
+    }
+    if (is_array($cache_context_extra) && !empty($cache_context_extra)) {
+        $cache_context = array_merge($cache_context, $cache_context_extra);
+    }
+    easee_cache_response($lbplogdir, $cache_scope, $do, isset($data) ? $data : null, $cache_context);
 }
 
 if ($query_view) {

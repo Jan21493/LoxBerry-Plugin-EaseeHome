@@ -12,14 +12,16 @@ $helptemplate = "pluginhelp.html";
 $navbar[1]['Name'] = $L['NAVBAR.FIRST'];
 $navbar[1]['URL'] = 'index.php';
 
-$navbar[2]['Name'] = $L['NAVBAR.SECOND'];
-$navbar[2]['URL'] = 'log.php';
-$navbar[3]['Name'] = $L['NAVBAR.THIRD'];
-$navbar[3]['URL'] = 'queries.php';
+$navbar[2]['Name'] = $L['NAVBAR.STATUS'];
+$navbar[2]['URL'] = 'status.php';
+$navbar[3]['Name'] = $L['NAVBAR.SECOND'];
+$navbar[3]['URL'] = 'log.php';
+$navbar[4]['Name'] = $L['NAVBAR.THIRD'];
+$navbar[4]['URL'] = 'queries.php';
 
 
 // NAVBAR
-$navbar[2]['active'] = True;
+$navbar[3]['active'] = True;
 
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
