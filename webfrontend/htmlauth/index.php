@@ -28,6 +28,9 @@ if ($_POST) {
     if (!isset($existing_config['send_mqtt'])) {
         $existing_config['send_mqtt'] = '0';
     }
+    if (!isset($existing_config['mqtt_topic']) || $existing_config['mqtt_topic'] === '') {
+        $existing_config['mqtt_topic'] = 'easee';
+    }
     if (!isset($existing_config['send_udp'])) {
         $existing_config['send_udp'] = '1';
     }
@@ -38,6 +41,8 @@ if ($_POST) {
     $return_json = isset($_POST['return_json']) ? (($_POST['return_json'] === 'on') ? '1' : '0') : $existing_config['send_json'];
     $return_mqtt = isset($_POST['return_mqtt']) ? (($_POST['return_mqtt'] === 'on') ? '1' : '0') : $existing_config['send_mqtt'];
     $return_udp = isset($_POST['return_udp']) ? (($_POST['return_udp'] === 'on') ? '1' : '0') : $existing_config['send_udp'];
+
+    $mqtt_topic = isset($_POST['mqtt_topic']) ? easee_normalize_mqtt_topic($_POST['mqtt_topic']) : $existing_config['mqtt_topic'];
 
     $log_level = easee_normalize_log_level(isset($_POST['log_level']) ? $_POST['log_level'] : 'info');
     $observation_definitions = easee_get_observation_definitions();
@@ -74,6 +79,7 @@ if ($_POST) {
         'send_udp' => $return_udp,
         'send_json' => $return_json,
         'send_mqtt' => $return_mqtt,
+        'mqtt_topic' => $mqtt_topic,
         'log_level' => isset($_POST['log_level']) ? $log_level : $existing_config['log_level'],
         'observation_ids' => $observation_ids
     );
@@ -103,6 +109,9 @@ if (!isset($config['miniserver'])) {
 }
 if (!isset($config['send_mqtt'])) {
     $config['send_mqtt'] = '0';
+}
+if (!isset($config['mqtt_topic']) || $config['mqtt_topic'] === '') {
+    $config['mqtt_topic'] = 'easee';
 }
 if (!isset($config['send_json'])) {
     $config['send_json'] = '0';
@@ -199,6 +208,7 @@ echo '<form action="index.php" method="post">';
 // User credentials and wallbox overview.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
 echo '<p class="wide">' . $L['USER.HEAD'] . '</p>';
+echo '<small>' . $L['USER.DESC'] . '</small><br><br>';
 echo '<label for="username">' . $L['USER.USER'] . '</label>';
 echo '<input data-inline="true" data-mini="true" name="username" id="username" value="' . htmlspecialchars($config['user']['username'], ENT_QUOTES) . '" type="text">';
 echo '<label for="password">' . $L['USER.PASS'] . '</label>';
@@ -210,6 +220,7 @@ if (strpos($token_str, 'accessToken') === false) {
 } else {
     echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br><br>';
     echo '<p class="wide">' . $L['WALLBOX.HEAD'] . '</p>';
+    echo '<small>' . $L['WALLBOX.DESC'] . '</small><br><br>';
     $i = 1;
     foreach ($data as $datakey => $dataval) {
         if (!is_array($dataval) || !isset($dataval['id'])) {
@@ -229,6 +240,7 @@ echo '</fieldset>';
 // Miniserver and output.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
 echo '<p class="wide">' . $L['MINISERVER.HEAD'] . '</p>';
+echo '<small>' . $L['MINISERVER.DESC'] . '</small><br><br>';
 $ms = LBSystem::get_miniservers();
 $miniserver_name = '';
 if (is_array($ms)) {
@@ -252,19 +264,24 @@ if (!is_array($ms)) {
     echo '</select>';
 }
 echo '<br><br><p class="wide">' . $L['RETURN.HEAD'] . '</p>';
+echo '<small>' . $L['RETURN.DESC'] . '</small><br><br>';
 echo '<label for="return_mqtt">' . $L['RETURN.MQTT'] . '</label>';
 echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if ($config['send_mqtt'] > 0) { echo ' checked'; } echo '>';
+echo '<label for="mqtt_topic">' . $L['RETURN.MQTT_TOPIC'] . '</label>';
+echo '<input data-inline="true" data-mini="true" name="mqtt_topic" id="mqtt_topic" value="' . htmlspecialchars($config['mqtt_topic'], ENT_QUOTES) . '" type="text">';
 echo '<label for="return_json">' . $L['RETURN.JSON'] . '</label>';
 echo '<input type="checkbox" id="return_json" name="return_json"'; if ($config['send_json'] > 0) { echo ' checked'; } echo '>';
 echo '<label for="return_udp">' . $L['RETURN.UDP'] . '</label>';
 echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '>';
 echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
 echo '<input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text">';
+echo '<br><small>' . $L['RETURN.HINT'] . '</small>';
 echo '</fieldset>';
 
 // Logging settings.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
 echo '<p class="wide">' . $L['LOGGING.HEAD'] . '</p>';
+echo '<small>' . $L['LOGGING.DESC'] . '</small><br><br>';
 echo '<label for="log_level">' . $L['LOGGING.LEVEL'] . '</label>';
 echo '<select name="log_level" id="log_level">';
 $log_levels = array('error' => $L['LOGGING.ERROR'], 'warn' => $L['LOGGING.WARN'], 'info' => $L['LOGGING.INFO'], 'debug' => $L['LOGGING.DEBUG']);
@@ -278,6 +295,8 @@ echo '</fieldset>';
 
 // Observation settings.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
+echo '<p class="wide">' . $L['OBSERVATIONS.STATUS_LIST_HEAD'] . '</p>';
+echo '<small>' . $L['OBSERVATIONS.STATUS_LIST_DESC'] . '</small>';
 echo '<div style="margin-top:6px;">';
 echo '<button type="button" id="observation-preset-none" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_NONE'] . '</button> ';
 echo '<button type="button" id="observation-preset-standard" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_STANDARD'] . '</button> ';
@@ -287,10 +306,15 @@ echo '</div>';
 echo '<small>' . $L['OBSERVATION.PRESET_STATUS_HINT'] . '</small>';
 echo '<br><small>' . $L['OBSERVATION.ALL_WARNING'] . '</small>';
 echo '<br><br><label>' . $L['OBSERVATIONS.LIST_LABEL'] . '</label>';
+echo '<div style="margin:6px 0;">';
+echo '<button type="button" id="observation-expand-all" data-inline="true" data-mini="true" data-icon="plus">' . $L['OBSERVATIONS.EXPAND_ALL'] . '</button> ';
+echo '<button type="button" id="observation-collapse-all" data-inline="true" data-mini="true" data-icon="minus">' . $L['OBSERVATIONS.COLLAPSE_ALL'] . '</button>';
+echo '</div>';
+echo '<div data-role="collapsibleset" id="observation-collapsibleset">';
 $grouped_observation_ids = array();
 foreach ($observation_groups as $group) {
-    echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
-    echo '<h3 style="font-size:16px;font-weight:bold;margin:0 0 6px;">' . $group['label'] . '</h3>';
+    echo '<div data-role="collapsible" data-collapsed="true">';
+    echo '<h3>' . $group['label'] . '</h3>';
     foreach ($group['ids'] as $observation_id) {
         if (!isset($observation_definitions[$observation_id])) {
             continue;
@@ -313,8 +337,8 @@ foreach ($observation_definitions as $observation_id => $definition) {
     }
 }
 if (!empty($other_observation_ids)) {
-    echo '<div style="margin-top:10px; border:1px solid #ddd; padding:8px;">';
-    echo '<h3 style="font-size:16px;font-weight:bold;margin:0 0 6px;">' . $L['OBSERVATIONS.GROUP_OTHER'] . '</h3>';
+    echo '<div data-role="collapsible" data-collapsed="true">';
+    echo '<h3>' . $L['OBSERVATIONS.GROUP_OTHER'] . '</h3>';
     foreach ($other_observation_ids as $observation_id) {
         $definition = $observation_definitions[$observation_id];
         $is_checked = isset($selected_observation_lookup[$observation_id]) ? ' checked' : '';
@@ -325,6 +349,7 @@ if (!empty($other_observation_ids)) {
     }
     echo '</div>';
 }
+echo '</div>';
 echo '<br><label for="observation_ids">' . $L['OBSERVATIONS.SELECTED_LABEL'] . '</label>';
 echo '<input data-inline="true" data-mini="true" name="observation_ids" id="observation_ids" value="' . htmlspecialchars(implode(',', $selected_observation_ids), ENT_QUOTES) . '" type="text" readonly>';
 echo '<small>' . $L['OBSERVATIONS.HINT'] . '</small>';
@@ -376,6 +401,13 @@ echo '  document.getElementById("observation-preset-none").addEventListener("cli
 echo '  document.getElementById("observation-preset-standard").addEventListener("click", function () { applyPreset("standard"); });';
 echo '  document.getElementById("observation-preset-status").addEventListener("click", function () { applyPreset("status"); });';
 echo '  document.getElementById("observation-preset-all").addEventListener("click", function () { applyPreset("all"); });';
+echo '  var setAllCollapsibles = function (action) {';
+echo '    if (window.jQuery && typeof jQuery === "function") {';
+echo '      try { jQuery("#observation-collapsibleset [data-role=\'collapsible\']").collapsible(action); } catch (e) {}';
+echo '    }';
+echo '  };';
+echo '  document.getElementById("observation-expand-all").addEventListener("click", function () { setAllCollapsibles("expand"); });';
+echo '  document.getElementById("observation-collapse-all").addEventListener("click", function () { setAllCollapsibles("collapse"); });';
 echo '  syncSelectedIds();';
 echo '  };';
 echo '  if (document.readyState === "loading") {';
