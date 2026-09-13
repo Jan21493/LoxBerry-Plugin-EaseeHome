@@ -26,21 +26,21 @@ if ($_POST) {
         $existing_config['send_json'] = '0';
     }
     if (!isset($existing_config['send_mqtt'])) {
-        $existing_config['send_mqtt'] = '0';
+        $existing_config['send_mqtt'] = '1';
     }
     if (!isset($existing_config['mqtt_topic']) || $existing_config['mqtt_topic'] === '') {
         $existing_config['mqtt_topic'] = 'easee';
     }
     if (!isset($existing_config['send_udp'])) {
-        $existing_config['send_udp'] = '1';
+        $existing_config['send_udp'] = '0';
     }
     if (!isset($existing_config['log_level'])) {
         $existing_config['log_level'] = 'info';
     }
 
-    $return_json = isset($_POST['return_json']) ? (($_POST['return_json'] === 'on') ? '1' : '0') : $existing_config['send_json'];
-    $return_mqtt = isset($_POST['return_mqtt']) ? (($_POST['return_mqtt'] === 'on') ? '1' : '0') : $existing_config['send_mqtt'];
-    $return_udp = isset($_POST['return_udp']) ? (($_POST['return_udp'] === 'on') ? '1' : '0') : $existing_config['send_udp'];
+    $return_json = isset($_POST['return_json']) ? (($_POST['return_json'] === 'on') ? '1' : '0') : '0';
+    $return_mqtt = isset($_POST['return_mqtt']) ? (($_POST['return_mqtt'] === 'on') ? '1' : '0') : '0';
+    $return_udp = isset($_POST['return_udp']) ? (($_POST['return_udp'] === 'on') ? '1' : '0') : '0';
 
     $mqtt_topic = isset($_POST['mqtt_topic']) ? easee_normalize_mqtt_topic($_POST['mqtt_topic']) : $existing_config['mqtt_topic'];
 
@@ -108,7 +108,7 @@ if (!isset($config['miniserver'])) {
     $config['miniserver'] = array('ip' => '', 'port' => '0');
 }
 if (!isset($config['send_mqtt'])) {
-    $config['send_mqtt'] = '0';
+    $config['send_mqtt'] = '1';
 }
 if (!isset($config['mqtt_topic']) || $config['mqtt_topic'] === '') {
     $config['mqtt_topic'] = 'easee';
@@ -117,7 +117,7 @@ if (!isset($config['send_json'])) {
     $config['send_json'] = '0';
 }
 if (!isset($config['send_udp'])) {
-    $config['send_udp'] = '1';
+    $config['send_udp'] = '0';
 }
 if (!isset($config['log_level'])) {
     $config['log_level'] = 'info';
@@ -271,11 +271,11 @@ if (!is_array($ms)) {
 echo '<br><br><h1 class="status-h1">' . $L['RETURN.HEAD'] . '</h1>';
 echo '<small>' . $L['RETURN.DESC'] . '</small><br><br>';
 echo '<label for="return_mqtt">' . $L['RETURN.MQTT'] . '</label>';
-echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if ($config['send_mqtt'] > 0) { echo ' checked'; } echo '>';
+echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if (($config['send_mqtt'] > 0) || ($config['send_mqtt'] === "1")) { echo ' checked'; } echo '>';
 echo '<label for="return_json">' . $L['RETURN.JSON'] . '</label>';
-echo '<input type="checkbox" id="return_json" name="return_json"'; if ($config['send_json'] > 0) { echo ' checked'; } echo '>';
+echo '<input type="checkbox" id="return_json" name="return_json"'; if (($config['send_json'] > 0) || ($config['send_json'] === "1")) { echo ' checked'; } echo '>';
 echo '<label for="return_udp">' . $L['RETURN.UDP'] . '</label>';
-echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '><br>';
+echo '<input type="checkbox" id="return_udp" name="return_udp"'; if (($config['send_udp'] > 0) || ($config['send_udp'] === "1")) { echo ' checked'; } echo '><br>';
 echo '<label for="mqtt_topic">' . $L['RETURN.MQTT_TOPIC'] . '</label>';
 echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="mqtt_topic" id="mqtt_topic" value="' . htmlspecialchars($config['mqtt_topic'], ENT_QUOTES) . '" type="text"></p>';
 echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
