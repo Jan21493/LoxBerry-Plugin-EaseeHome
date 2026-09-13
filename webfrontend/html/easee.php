@@ -53,7 +53,7 @@ easee_log('debug', 'Received request', $request_context, $file_log_i, $file_log_
 if (!empty($do)) {
     // Check token.
     $url_token = '/api/accounts/login';
-	$url_refresh_tocken = '/api/accounts/refresh_token';
+	$url_refresh_token = '/api/accounts/refresh_token';
     if (array_key_exists('status',$token)) {
         $token_time_diff = 86001;
     } elseif (empty($token)){
@@ -68,7 +68,7 @@ if (!empty($do)) {
     }
     // Refresh token if still inside refresh window.
 	if ($token_time_diff > $max_lifetime && $token_time_diff < 86000) {
-		get_refresh_token($url_base, $url_refresh_tocken, $file_token, $token['accessToken'], $token['refreshToken']);
+		refresh_access_token($url_base, $url_refresh_token, $file_token, $token['accessToken'], $token['refreshToken']);
         $token = json_decode(file_get_contents($file_token), true);
         if (!is_array($token)) {
             $token = array();
@@ -77,7 +77,7 @@ if (!empty($do)) {
             check_data($token, $url_token, $file_log_e, $file_log_i, $log_level);
 			exit;			
         } else {
-            easee_log('info', 'Refresh token created', array(
+            easee_log('info', 'Access token created from refresh token', array(
                 'url' => $url_token
             ), $file_log_i, $file_log_e, $log_level);
 		}
@@ -99,7 +99,7 @@ if (!empty($do)) {
             check_data($token, $url_token, $file_log_e, $file_log_i, $log_level);
 			exit;			
         } else {
-            easee_log('info', 'New token created', array(
+            easee_log('info', 'New token created from credentials', array(
                 'url' => $url_token
             ), $file_log_i, $file_log_e, $log_level);
 		}
@@ -651,23 +651,14 @@ switch ($do) {
             'timestamp' => currtime(),
             'requestedPowerKw' => round($requested_power_kw, 3),
             'effectivePowerKw' => round(floatval($value), 3),
-            'phaseMode' => ($target_phase == 1 ? 'single-phase' : 'three-phase'),
-            'phaseCount' => $target_phase,
+            'dynamicPhaseMode' => ($target_phase == 1 ? 'single-phase' : 'three-phase'),
             'amperePerActivePhase' => $ampere,
             'hysteresis' => array(
                 'hys1to3Seconds' => $hys_1to3,
                 'hys3to1Seconds' => $hys_3to1,
                 'secondsSinceLastSwitch' => $seconds_since_switch
             ),
-            'switchReason' => $phase_switch_reason,
-            'config' => array(
-                'logLevel' => $log_level,
-                'sendUdp' => isset($config['send_udp']) ? $config['send_udp'] : '0',
-                'sendJson' => isset($config['send_json']) ? $config['send_json'] : '0',
-                'sendMqtt' => isset($config['send_mqtt']) ? $config['send_mqtt'] : '0',
-                'mqttTopic' => $mqtt_topic,
-                'observationIds' => isset($config['observation_ids']) ? $config['observation_ids'] : ''
-            )
+            'switchReason' => $phase_switch_reason
         ), $file_log_i, $file_log_e, $log_level);
 
         // Send calculated current values to the charger API.

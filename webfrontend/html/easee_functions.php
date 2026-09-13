@@ -9,15 +9,15 @@ function easee_get_token_file($lbplogdir)
     return $tokenDir . '/easee_token.ini';
 }
 
-// Get token.
-function get_token($url_base, $url_tocken, $file_token, $username, $password)
+// Get refresh and access tokens from credentials.
+function get_token($url_base, $url_token, $file_token, $username, $password)
 {
     $data = array(
         "userName" => "$username",
         "password" => "$password"
     );
     $postdata = json_encode($data);
-    $ch = curl_init($url_base . $url_tocken);
+    $ch = curl_init($url_base . $url_token);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -35,15 +35,15 @@ function get_token($url_base, $url_tocken, $file_token, $username, $password)
     return json_decode($result, true);
 }
 
-// Get refresh token.
-function get_refresh_token($url_base, $url_tocken, $file_token, $token, $refresh_token)
+// Get access token from refresh token, see https://developer.easee.com/reference/account_refreshtoken
+function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token)
 {
     $data = array(
         "accessToken" => "$token",
         "refreshToken" => "$refresh_token"
     );
     $postdata = json_encode($data);
-    $ch = curl_init($url_base . $url_tocken);
+    $ch = curl_init($url_base . $url_token);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
     curl_setopt($ch, CURLOPT_POST, 1);

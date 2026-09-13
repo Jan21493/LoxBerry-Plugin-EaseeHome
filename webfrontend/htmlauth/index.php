@@ -202,24 +202,30 @@ LBWeb::lbheader($template_title, $helplink, $helptemplate);
 echo '<img src="logo.png" alt="' . htmlspecialchars($L['MAIN.INTRO'], ENT_QUOTES) . '">';
 
 echo '<p>' . $L['MAIN.INTRO1'] . '</p>';
-echo '<br>';
+
+echo '<style>'
+    .'h1.status-h1{font-size:26px;font-weight:bold;margin:0 0 6px;}'
+	.'h2.charger-head{font-size:20px;font-weight:bold;margin:22px 0 10px;}'
+	.'h3.status-h3{font-size:15px;font-weight:bold;color:#333;margin:10px 0 8px;}'
+	.'</style>';
+
 echo '<form action="index.php" method="post">';
 
 // User credentials and wallbox overview.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="wide">' . $L['USER.HEAD'] . '</p>';
+echo '<h1 class="status-h1">' . $L['USER.HEAD'] . '</h1>';
 echo '<small>' . $L['USER.DESC'] . '</small><br><br>';
 echo '<label for="username">' . $L['USER.USER'] . '</label>';
-echo '<input data-inline="true" data-mini="true" name="username" id="username" value="' . htmlspecialchars($config['user']['username'], ENT_QUOTES) . '" type="text">';
+echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="username" id="username" value="' . htmlspecialchars($config['user']['username'], ENT_QUOTES) . '" type="text"></p>';
 echo '<label for="password">' . $L['USER.PASS'] . '</label>';
-echo '<input data-inline="true" data-mini="true" name="password" id="password" value="' . htmlspecialchars($config['user']['password'], ENT_QUOTES) . '" type="password">';
+echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="password" id="password" value="' . htmlspecialchars($config['user']['password'], ENT_QUOTES) . '" type="password"></p>';
 
 if (strpos($token_str, 'accessToken') === false) {
     echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br><br>';
     log_e($token, $url_tocken, $file_log_e);
 } else {
     echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br><br>';
-    echo '<p class="wide">' . $L['WALLBOX.HEAD'] . '</p>';
+    echo '<h1 class="status-h1">' . $L['WALLBOX.HEAD'] . '</h1>';
     echo '<small>' . $L['WALLBOX.DESC'] . '</small><br><br>';
     $i = 1;
     foreach ($data as $datakey => $dataval) {
@@ -238,7 +244,7 @@ echo '</fieldset>';
 
 // Miniserver and output.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="wide">' . $L['MINISERVER.HEAD'] . '</p>';
+echo '<h1 class="status-h1">' . $L['MINISERVER.HEAD'] . '</h1>';
 echo '<small>' . $L['MINISERVER.DESC'] . '</small><br><br>';
 $ms = LBSystem::get_miniservers();
 $miniserver_name = '';
@@ -262,7 +268,7 @@ if (!is_array($ms)) {
     }
     echo '</select>';
 }
-echo '<br><br><p class="wide">' . $L['RETURN.HEAD'] . '</p>';
+echo '<br><br><h1 class="status-h1">' . $L['RETURN.HEAD'] . '</h1>';
 echo '<small>' . $L['RETURN.DESC'] . '</small><br><br>';
 echo '<label for="return_mqtt">' . $L['RETURN.MQTT'] . '</label>';
 echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if ($config['send_mqtt'] > 0) { echo ' checked'; } echo '>';
@@ -271,15 +277,15 @@ echo '<input type="checkbox" id="return_json" name="return_json"'; if ($config['
 echo '<label for="return_udp">' . $L['RETURN.UDP'] . '</label>';
 echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '><br>';
 echo '<label for="mqtt_topic">' . $L['RETURN.MQTT_TOPIC'] . '</label>';
-echo '<input data-inline="true" data-mini="true" name="mqtt_topic" id="mqtt_topic" value="' . htmlspecialchars($config['mqtt_topic'], ENT_QUOTES) . '" type="text">';
+echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="mqtt_topic" id="mqtt_topic" value="' . htmlspecialchars($config['mqtt_topic'], ENT_QUOTES) . '" type="text"></p>';
 echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
-echo '<input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text">';
+echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text"></p>';
 echo '<br><small>' . $L['RETURN.HINT'] . '</small>';
 echo '</fieldset>';
 
 // Logging settings.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="wide">' . $L['LOGGING.HEAD'] . '</p>';
+echo '<h1 class="status-h1">' . $L['LOGGING.HEAD'] . '</h1>';
 echo '<small>' . $L['LOGGING.DESC'] . '</small><br><br>';
 echo '<label for="log_level">' . $L['LOGGING.LEVEL'] . '</label>';
 echo '<select name="log_level" id="log_level">';
@@ -294,7 +300,7 @@ echo '</fieldset>';
 
 // Observation settings.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<p class="wide">' . $L['OBSERVATIONS.STATUS_LIST_HEAD'] . '</p>';
+echo '<h1 class="status-h1">' . $L['OBSERVATIONS.STATUS_LIST_HEAD'] . '</h1>';
 echo '<small>' . $L['OBSERVATIONS.STATUS_LIST_DESC'] . '</small>';
 echo '<div style="margin-top:6px;">';
 echo '<button type="button" id="observation-preset-none" data-inline="true" data-mini="true">' . $L['OBSERVATION.PRESET_NONE'] . '</button> ';

@@ -51,7 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_log'])) {
 }
 
 //LOGFILES
-echo '<p class="wide">'. $L['LOGFILES.HEAD']. '</p>';
+echo '<img src="logo.png" alt="Easee Home">';
+
+echo '<style>'
+    .'h1.status-h1{font-size:26px;font-weight:bold;margin:0 0 6px;}'
+	.'h2.charger-head{font-size:20px;font-weight:bold;margin:22px 0 10px;}'
+	.'h3.status-h3{font-size:15px;font-weight:bold;color:#333;margin:10px 0 8px;}'
+	.'</style>';
+
+echo '<h1 class="status-h1">'. $L['LOGFILES.HEAD']. '</h1>';
 echo '<form method="post" action="log.php" style="margin-bottom:12px;">';
 echo '<button type="submit" name="delete_log" value="error" data-inline="true" data-mini="true">' . $L['LOGFILES.DELETE_ERROR_BUTTON'] . '</button> ';
 echo '<button type="submit" name="delete_log" value="info" data-inline="true" data-mini="true">' . $L['LOGFILES.DELETE_INFO_BUTTON'] . '</button>';

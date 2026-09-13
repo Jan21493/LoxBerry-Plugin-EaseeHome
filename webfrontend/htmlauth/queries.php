@@ -113,7 +113,6 @@ $copy_icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width=
 
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
 echo '<img src="logo.png" alt="Easee Home">';
-echo '<p>'.$L['MAIN.INTRO1'].'</p><br>';
 
 echo '<style>'
 	.'.info-badge{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;line-height:1;text-align:center;border-radius:50%;background:#0079c1;color:#fff;font-size:11px;font-weight:bold;font-style:italic;font-family:serif;text-decoration:none;margin-left:6px;cursor:pointer;vertical-align:middle;}'
@@ -128,6 +127,9 @@ echo '<style>'
 	.'.copy-btn:hover{background:#eef1f4;}'
 	.'.copy-btn svg{fill:#24292f;display:block;}'
 	.'.copy-ok{color:#1a7f37;font-size:12px;margin-left:6px;visibility:hidden;flex:0 0 auto;align-self:center;}'
+    .'h1.status-h1{font-size:26px;font-weight:bold;margin:0 0 6px;}'
+	.'h2.charger-head{font-size:20px;font-weight:bold;margin:22px 0 10px;}'
+	.'h3.status-h3{font-size:15px;font-weight:bold;color:#333;margin:10px 0 8px;}'
 	.'.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:100000;}'
 	.'.modal-box{background:#fff;max-width:520px;width:calc(100% - 32px);margin:12vh auto;padding:16px 18px;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.35);position:relative;max-height:70vh;overflow:auto;}'
 	.'.modal-close{position:absolute;top:4px;right:10px;border:none;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#555;}'
@@ -138,7 +140,7 @@ echo '<style>'
 	.'</style>';
 
 // Heading + intro.
-echo '<h1>'.$L['QUERIES.HEAD'].'</h1>';
+echo '<h1 class="status-h1">'.$L['QUERIES.HEAD'].'</h1>';
 echo '<p><small>'.$L['QUERIES.INTRO'].'</small></p>';
 
 // Command + parameters.
@@ -209,15 +211,15 @@ echo '</form>';
 
 // Loxone Config command.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<h2>'.$L['QUERIES.LOX_HEAD'].'</h2>';
+echo '<h2 class="charger-head">'.$L['QUERIES.LOX_HEAD'].'</h2>';
 echo '<small>'.$L['QUERIES.LOX_HINT'].'</small>';
-echo '<h3>'.$L['QUERIES.LOX_BASE'].'</h3>';
+echo '<h3 class="status-h3">'.$L['QUERIES.LOX_BASE'].'</h3>';
 echo '<div class="cmdbox">';
 echo '<code id="lox-base"></code>';
 echo '<button type="button" data-role="none" class="copy-btn" data-copy-target="lox-base" data-ok="lox-base-ok" title="'.htmlspecialchars($L['QUERIES.COPY'], ENT_QUOTES).'">'.$copy_icon.'</button>';
 echo '<span class="copy-ok" id="lox-base-ok">'.$L['QUERIES.COPIED'].'</span>';
 echo '</div>';
-echo '<h3 id="lox-cmd-head">'.$L['QUERIES.LOX_CMD'].'</h3>';
+echo '<h3 class="status-h3" id="lox-cmd-head">'.$L['QUERIES.LOX_CMD'].'</h3>';
 echo '<div class="cmdbox">';
 echo '<code id="lox-cmd"></code>';
 echo '<button type="button" data-role="none" class="copy-btn" data-copy-target="lox-cmd" data-ok="lox-ok" title="'.htmlspecialchars($L['QUERIES.COPY'], ENT_QUOTES).'">'.$copy_icon.'</button>';
@@ -227,7 +229,7 @@ echo '</fieldset>';
 
 // Easee Cloud API request.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<h2>'.$L['QUERIES.API_HEAD'].'</h2>';
+echo '<h2 class="charger-head">'.$L['QUERIES.API_HEAD'].'</h2>';
 echo '<small>'.$L['QUERIES.API_HINT'].'</small>';
 echo '<div class="cmdbox" style="margin-top:6px;">';
 echo '<code id="api-cmd"></code>';
@@ -238,7 +240,7 @@ echo '</fieldset>';
 
 // Response.
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<h2>'.$L['QUERIES.RESULT_HEAD'].'</h2>';
+echo '<h2 class="charger-head">'.$L['QUERIES.RESULT_HEAD'].'</h2>';
 echo '<iframe name="query_result" style="width:100%;min-height:360px;border:1px solid #ccc;background:#fff;"></iframe>';
 echo '</fieldset>';
 
@@ -252,7 +254,7 @@ foreach ($observationDefinitions as $obsId => $obsDef) {
 }
 
 echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<h2>'.$L['QUERIES.VI_HEAD'].'</h2>';
+echo '<h2 class="charger-head">'.$L['QUERIES.VI_HEAD'].'</h2>';
 echo '<p><small>'.$L['QUERIES.VI_INTRO'].'</small></p>';
 
 // Protocol selection (MQTT recommended / UDP).
@@ -266,13 +268,13 @@ echo '</div>';
 
 // MQTT setup help.
 echo '<div id="vi-setup-mqtt">';
-echo '<h3>'.$L['QUERIES.VI_SETUP_HEAD'].'</h3>';
+echo '<h3 class="status-h3">'.$L['QUERIES.VI_SETUP_HEAD'].'</h3>';
 echo '<ol class="vi-setup"><li>'.$L['QUERIES.VI_MQTT_SETUP_1'].'</li><li>'.$L['QUERIES.VI_MQTT_SETUP_2'].'</li></ol>';
 echo '</div>';
 
 // UDP setup help.
 echo '<div id="vi-setup-udp" style="display:none;">';
-echo '<h3>'.$L['QUERIES.VI_SETUP_HEAD'].'</h3>';
+echo '<h3 class="status-h3">'.$L['QUERIES.VI_SETUP_HEAD'].'</h3>';
 echo '<ol class="vi-setup"><li>'.$L['QUERIES.VI_UDP_SETUP_1'].'</li><li>'.$L['QUERIES.VI_UDP_SETUP_2'].'</li>';
 echo '<li>'.$L['QUERIES.VI_UDP_SETUP_3_PRE']
 	.'<a href="'.htmlspecialchars($L['LINKS.UDP_TEMPLATE'], ENT_QUOTES).'" target="_blank" rel="noopener">'.$L['QUERIES.VI_UDP_TEMPLATE_LABEL'].'</a>'
@@ -280,7 +282,7 @@ echo '<li>'.$L['QUERIES.VI_UDP_SETUP_3_PRE']
 echo '</div>';
 
 // Parameter list (populated from the JSON output of the executed query).
-echo '<h3>'.$L['QUERIES.VI_PARAMS_HEAD'].'</h3>';
+echo '<h3 class="status-h3">'.$L['QUERIES.VI_PARAMS_HEAD'].'</h3>';
 echo '<p id="vi-hint" class="param-desc">'.$L['QUERIES.VI_HINT'].'</p>';
 echo '<div id="vi-params"></div>';
 echo '</fieldset>';
