@@ -170,7 +170,7 @@ function easee_status_render_group($title, $rows, $hint = '')
         return;
     }
 
-    echo '<fieldset class="status-card">';
+    echo '<br><fieldset class="status-card">';
     echo '<h3 class="sec-head">' . htmlspecialchars($title, ENT_QUOTES) . '</h3>';
     if ($hint !== '') {
         echo '<small class="status-hint">' . $hint . '</small>';
@@ -214,10 +214,10 @@ echo '<img src="logo.png" alt="Easee Home">';
 echo '<style>'
     . '.status-card{margin-bottom:12px;padding:10px;}'
     . 'h3.sec-head{font-size:17px;font-weight:bold;color:#333;margin:0 0 8px;line-height:1.3;}'
-    . '.status-table{width:100%;border-collapse:collapse;font-size:13px;}'
-    . '.status-table th{text-align:left;font-weight:normal;color:#555;width:45%;vertical-align:top;padding:4px 8px 4px 0;border-bottom:1px solid #eee;}'
+    . '.status-table{width:100%;border-collapse:collapse;font-size:13px;margin-top: 10px;}'
+    . '.status-table th{text-align:left;font-weight:normal;color:#555;width:50%;vertical-align:top;padding:4px 8px 4px 0;border-bottom:1px solid #eee;}'
     . '.status-table td{text-align:left;font-weight:bold;vertical-align:top;padding:3px 0;border-bottom:1px solid #eee;}'
-    . '.status-hint{color:#777;font-weight:normal;}'
+    . '.status-hint{color:#777;font-size:14px;font-weight:normal;word-break:break-word;}'
     . '.status-headline{border-radius:8px;padding:12px 14px;margin:0 0 12px;color:#fff;}'
     . '.status-headline .hl-main{font-size:18px;font-weight:bold;}'
     . '.status-headline .hl-sub{font-size:13px;opacity:.95;margin-top:4px;}'
@@ -234,7 +234,7 @@ echo '<p><small>' . $L['STATUS.INTRO'] . '</small></p>';
 
 echo '<div class="status-toolbar">';
 echo '<button type="button" data-inline="true" data-mini="true" onclick="window.location.reload();">' . $L['STATUS.REFRESH'] . '</button> ';
-echo '<label style="display:inline-block;margin-left:8px;"><input type="checkbox" id="status-autorefresh"> ' . $L['STATUS.AUTOREFRESH'] . '</label>';
+echo '<label style="display:inline-block;margin-left:5px;"><input type="checkbox" id="status-autorefresh"> ' . $L['STATUS.AUTOREFRESH'] . '</label>';
 echo '<br><small class="status-hint">' . $L['STATUS.GENERATED'] . ': ' . date('Y-m-d H:i:s')
     . ' <span id="status-countdown"></span></small>';
 echo '</div>';
@@ -538,17 +538,17 @@ foreach ($chargerIds as $chargerId) {
     echo '<h3 class="sec-head">' . $L['STATUS.GROUP_FRESHNESS'] . '</h3>';
     echo '<small class="status-hint">' . $L['STATUS.FRESHNESS_HINT'] . '</small>';
     echo '<table class="status-table"><tbody>';
-    echo '<tr><th>' . $L['STATUS.SOURCE'] . '</th><td>' . $L['STATUS.TIMESTAMP'] . '</td></tr>';
+    echo '<tr><th width="50%">' . $L['STATUS.SOURCE'] . '</th><th width="50%">' . $L['STATUS.TIMESTAMP'] . '</th></tr>';
     $cacheKeys = array_keys($cache);
     sort($cacheKeys);
     foreach ($cacheKeys as $cacheKey) {
         $entry = $cache[$cacheKey];
         $entryUrl = isset($entry['context']['url']) ? $entry['context']['url'] : '';
-        echo '<tr><th>easee.php?do=' . htmlspecialchars($cacheKey, ENT_QUOTES);
+        echo '<tr><td>easee.php?do=' . htmlspecialchars($cacheKey, ENT_QUOTES);
         if ($entryUrl !== '') {
             echo '<br><small class="status-hint">' . htmlspecialchars($entryUrl, ENT_QUOTES) . '</small>';
         }
-        echo '</th><td>' . htmlspecialchars((string)easee_status_timestamp_text(isset($entry['fetchedAtEpoch']) ? $entry['fetchedAtEpoch'] : null, $L), ENT_QUOTES) . '</td></tr>';
+        echo '</td><td>' . htmlspecialchars((string)easee_status_timestamp_text(isset($entry['fetchedAtEpoch']) ? $entry['fetchedAtEpoch'] : null, $L), ENT_QUOTES) . '</td></tr>';
     }
     echo '</tbody></table>';
 
@@ -557,7 +557,7 @@ foreach ($chargerIds as $chargerId) {
         echo '<table class="status-table"><tbody>';
         ksort($observationTimestamps);
         foreach ($observationTimestamps as $fieldName => $fieldTimestamp) {
-            echo '<tr><th>' . htmlspecialchars($fieldName, ENT_QUOTES) . '</th><td>'
+            echo '<tr><td width="50%">' . htmlspecialchars($fieldName, ENT_QUOTES) . '</td><td>'
                 . htmlspecialchars((string)easee_status_timestamp_text($fieldTimestamp, $L), ENT_QUOTES) . '</td></tr>';
         }
         echo '</tbody></table></details>';
@@ -597,7 +597,7 @@ foreach ($chargerIds as $chargerId) {
         }
     }
     if (!empty($decodedRows)) {
-        echo '<fieldset class="status-card">';
+        echo '<br><fieldset class="status-card">';
         echo '<h3 class="sec-head">' . $L['STATUS.GROUP_ENUMS'] . '</h3>';
         echo '<small class="status-hint">' . $L['STATUS.ENUMS_HINT'] . '</small>';
         echo '<table class="status-table"><tbody>';
@@ -615,7 +615,7 @@ foreach ($chargerIds as $chargerId) {
     // Group: raw cached responses.
     // -----------------------------------------------------------------------
     if (!empty($cache)) {
-        echo '<fieldset class="status-card status-raw">';
+        echo '<br><fieldset class="status-card status-raw">';
         echo '<h3 class="sec-head">' . $L['STATUS.GROUP_RAW'] . '</h3>';
         foreach ($cacheKeys as $cacheKey) {
             $entry = $cache[$cacheKey];

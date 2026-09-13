@@ -366,7 +366,7 @@ echo <<<'JS'
 		var q = ['do=' + encodeURIComponent(doSel.value)];
 		if (active.indexOf('id') !== -1 && val(idEl)) { q.push('id=' + encodeURIComponent(val(idEl))); }
 		if (active.indexOf('type') !== -1 && val(typeEl)) { q.push('type=' + encodeURIComponent(val(typeEl))); }
-		if (active.indexOf('value') !== -1) { q.push('value=<v>'); }
+		if (active.indexOf('value') !== -1) { q.push('value=<v.3>'); }
 		if (active.indexOf('hys1to3') !== -1 && val(hys1El)) { q.push('hys1to3=' + encodeURIComponent(val(hys1El))); }
 		if (active.indexOf('hys3to1') !== -1 && val(hys3El)) { q.push('hys3to1=' + encodeURIComponent(val(hys3El))); }
 		return '/plugins/easee_home/easee.php?' + q.join('&');

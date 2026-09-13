@@ -233,7 +233,6 @@ if (strpos($token_str, 'accessToken') === false) {
         $i++;
     }
     echo '<small>' . $L['WALLBOX.STATUS_HINT'] . '</small>';
-    echo '<br><br>';
 }
 echo '</fieldset>';
 
@@ -267,12 +266,12 @@ echo '<br><br><p class="wide">' . $L['RETURN.HEAD'] . '</p>';
 echo '<small>' . $L['RETURN.DESC'] . '</small><br><br>';
 echo '<label for="return_mqtt">' . $L['RETURN.MQTT'] . '</label>';
 echo '<input type="checkbox" id="return_mqtt" name="return_mqtt"'; if ($config['send_mqtt'] > 0) { echo ' checked'; } echo '>';
-echo '<label for="mqtt_topic">' . $L['RETURN.MQTT_TOPIC'] . '</label>';
-echo '<input data-inline="true" data-mini="true" name="mqtt_topic" id="mqtt_topic" value="' . htmlspecialchars($config['mqtt_topic'], ENT_QUOTES) . '" type="text">';
 echo '<label for="return_json">' . $L['RETURN.JSON'] . '</label>';
 echo '<input type="checkbox" id="return_json" name="return_json"'; if ($config['send_json'] > 0) { echo ' checked'; } echo '>';
 echo '<label for="return_udp">' . $L['RETURN.UDP'] . '</label>';
-echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '>';
+echo '<input type="checkbox" id="return_udp" name="return_udp"'; if ($config['send_udp'] > 0) { echo ' checked'; } echo '><br>';
+echo '<label for="mqtt_topic">' . $L['RETURN.MQTT_TOPIC'] . '</label>';
+echo '<input data-inline="true" data-mini="true" name="mqtt_topic" id="mqtt_topic" value="' . htmlspecialchars($config['mqtt_topic'], ENT_QUOTES) . '" type="text">';
 echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
 echo '<input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text">';
 echo '<br><small>' . $L['RETURN.HINT'] . '</small>';
@@ -307,8 +306,6 @@ echo '<small>' . $L['OBSERVATION.PRESET_STATUS_HINT'] . '</small>';
 echo '<br><small>' . $L['OBSERVATION.ALL_WARNING'] . '</small>';
 echo '<br><br><label>' . $L['OBSERVATIONS.LIST_LABEL'] . '</label>';
 echo '<div style="margin:6px 0;">';
-echo '<button type="button" id="observation-expand-all" data-inline="true" data-mini="true" data-icon="plus">' . $L['OBSERVATIONS.EXPAND_ALL'] . '</button> ';
-echo '<button type="button" id="observation-collapse-all" data-inline="true" data-mini="true" data-icon="minus">' . $L['OBSERVATIONS.COLLAPSE_ALL'] . '</button>';
 echo '</div>';
 echo '<div data-role="collapsibleset" id="observation-collapsibleset">';
 $grouped_observation_ids = array();
