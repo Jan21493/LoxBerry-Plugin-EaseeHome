@@ -157,7 +157,7 @@ echo '<div id="params-wrap" style="margin-top:8px;">';
 
 // id (charger selection).
 echo '<div class="param-row" data-param="id">';
-echo '<label for="id">id <a class="info-badge" href="javascript:void(0)" data-title="id" data-help="'.htmlspecialchars($L['QUERIES.PARAM_ID'], ENT_QUOTES).'">i</a></label>';
+echo '<label for="id">id</label>';
 if (!empty($chargers)) {
 	echo '<select name="id" id="id">';
 	echo '<option value=""></option>';
@@ -174,28 +174,28 @@ echo '</div>';
 
 // type (post_settings only).
 echo '<div class="param-row" data-param="type">';
-echo '<label for="type">type <a class="info-badge" href="javascript:void(0)" data-title="type" data-help="'.htmlspecialchars($L['QUERIES.PARAM_TYPE'], ENT_QUOTES).'">i</a></label>';
+echo '<label for="type">type</label>';
 echo '<input data-inline="true" data-mini="true" name="type" id="type" value="" type="text">';
 echo '<small class="param-desc">'.$L['QUERIES.PARAM_TYPE'].'</small>';
 echo '</div>';
 
 // value.
 echo '<div class="param-row" data-param="value">';
-echo '<label for="value">value <a class="info-badge" id="value-info" href="javascript:void(0)" data-title="value" data-help="'.htmlspecialchars($L['QUERIES.PARAM_VALUE'], ENT_QUOTES).'">i</a></label>';
+echo '<label for="value">value</label>';
 echo '<input data-inline="true" data-mini="true" name="value" id="value" value="" type="text">';
 echo '<small class="param-desc" id="value-desc">'.$L['QUERIES.PARAM_VALUE'].'</small>';
 echo '</div>';
 
 // hys1to3 (post_dynamicPower only).
 echo '<div class="param-row" data-param="hys1to3">';
-echo '<label for="hys1to3">hys1to3 <a class="info-badge" href="javascript:void(0)" data-title="hys1to3" data-help="'.htmlspecialchars($L['QUERIES.PARAM_HYS1TO3'], ENT_QUOTES).'">i</a></label>';
+echo '<label for="hys1to3">hys1to3 <a class="info-badge" href="javascript:void(0)" data-title="hys1to3" data-help="'.htmlspecialchars($L['QUERIES.HINT_PARAM_HYS1TO3'], ENT_QUOTES).'">i</a></label>';
 echo '<input data-inline="true" data-mini="true" name="hys1to3" id="hys1to3" value="" type="text">';
 echo '<small class="param-desc">'.$L['QUERIES.PARAM_HYS1TO3'].'</small>';
 echo '</div>';
 
 // hys3to1 (post_dynamicPower only).
 echo '<div class="param-row" data-param="hys3to1">';
-echo '<label for="hys3to1">hys3to1 <a class="info-badge" href="javascript:void(0)" data-title="hys3to1" data-help="'.htmlspecialchars($L['QUERIES.PARAM_HYS3TO1'], ENT_QUOTES).'">i</a></label>';
+echo '<label for="hys3to1">hys3to1 <a class="info-badge" href="javascript:void(0)" data-title="hys3to1" data-help="'.htmlspecialchars($L['QUERIES.HINT_PARAM_HYS3TO1'], ENT_QUOTES).'">i</a></label>';
 echo '<input data-inline="true" data-mini="true" name="hys3to1" id="hys3to1" value="" type="text">';
 echo '<small class="param-desc">'.$L['QUERIES.PARAM_HYS3TO1'].'</small>';
 echo '</div>';
