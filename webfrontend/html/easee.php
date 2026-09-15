@@ -3,7 +3,7 @@
 require_once "loxberry_system.php";
 include 'easee_functions.php';
 error_reporting(0);
-set_time_limit(15);
+set_time_limit(45);
 
 // Configuration.
 $url_base    = 'https://api.easee.com';
@@ -68,40 +68,51 @@ if (!empty($do)) {
     }
     // Refresh token if still inside refresh window.
 	if ($token_time_diff > $max_lifetime && $token_time_diff < 86000) {
-		refresh_access_token($url_base, $url_refresh_token, $file_token, $token['accessToken'], $token['refreshToken']);
-        $token = json_decode(file_get_contents($file_token), true);
-        if (!is_array($token)) {
-            $token = array();
-        }
-		if (array_key_exists('status',$token)) {
-            check_data($token, $url_token, $file_log_e, $file_log_i, $log_level);
-			exit;			
-        } else {
-            easee_log('info', 'Access token created from refresh token', array(
-                'url' => $url_token
-            ), $file_log_i, $file_log_e, $log_level);
+		$refreshed = refresh_access_token(
+			$url_base,
+			$url_refresh_token,
+			$file_token,
+			isset($token['accessToken']) ? $token['accessToken'] : '',
+			isset($token['refreshToken']) ? $token['refreshToken'] : '',
+			$file_log_i,
+			$file_log_e,
+			$log_level
+		);
+		if (easee_token_is_valid($refreshed)) {
+			$token = $refreshed;
+			easee_log('info', 'Access token created from refresh token', array(
+				'url' => $url_refresh_token
+			), $file_log_i, $file_log_e, $log_level);
+		} else {
+			// A refresh token can be rejected even before it expires (revoked or
+			// idle session, see https://developer.easee.com/changelog/refresh-token-handling).
+			// Fall back to a full credential login instead of aborting.
+			easee_log('warn', 'Refresh token rejected, falling back to credential login', array(
+				'url' => $url_refresh_token
+			), $file_log_i, $file_log_e, $log_level);
+			$token_time_diff = 86000;
 		}
 	}
-    // Request a new token if refresh window is over.
+    // Request a new token if refresh window is over or the refresh failed.
     if ($token_time_diff >= 86000) {
-        get_token(
+        $logged_in = get_token(
             $url_base,
             $url_token,
             $file_token,
             isset($config['user']['username']) ? $config['user']['username'] : '',
-            isset($config['user']['password']) ? $config['user']['password'] : ''
+            isset($config['user']['password']) ? $config['user']['password'] : '',
+            $file_log_i,
+            $file_log_e,
+            $log_level
         );
-        $token = json_decode(file_get_contents($file_token), true);
-        if (!is_array($token)) {
-            $token = array();
-        }
-        if (array_key_exists('status',$token)) {
-            check_data($token, $url_token, $file_log_e, $file_log_i, $log_level);
-			exit;			
-        } else {
+        if (easee_token_is_valid($logged_in)) {
+            $token = $logged_in;
             easee_log('info', 'New token created from credentials', array(
                 'url' => $url_token
             ), $file_log_i, $file_log_e, $log_level);
+        } else {
+            // The concrete reason (HTTP status / cURL error) was already logged.
+            exit;
 		}
     }
 }

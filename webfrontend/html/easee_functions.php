@@ -9,56 +9,160 @@ function easee_get_token_file($lbplogdir)
     return $tokenDir . '/easee_token.ini';
 }
 
-// Get refresh and access tokens from credentials.
-function get_token($url_base, $url_token, $file_token, $username, $password)
+// Return true if the decoded token array carries a usable access token.
+function easee_token_is_valid($token)
 {
-    $data = array(
-        "userName" => "$username",
-        "password" => "$password"
-    );
-    $postdata = json_encode($data);
-    $ch = curl_init($url_base . $url_token);
+    return is_array($token)
+        && isset($token['accessToken'])
+        && is_string($token['accessToken'])
+        && $token['accessToken'] !== '';
+}
+
+// Perform an authentication related POST and return body plus transport details.
+function easee_auth_curl($url, $postdata, $bearer = null)
+{
+    $headers = array('Content-Type: application/json');
+    if ($bearer !== null && $bearer !== '') {
+        $headers[] = 'Authorization: Bearer ' . $bearer;
+    }
+    $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-        'Content-Type: application/json'
-    ));
-    $result = curl_exec($ch);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    $body = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    $http_code = intval(curl_getinfo($ch, CURLINFO_HTTP_CODE));
     curl_close($ch);
-    file_put_contents($file_token, $result);
-    return json_decode($result, true);
+    return array(
+        'body' => ($body === false) ? '' : $body,
+        'http_code' => $http_code,
+        'errno' => $errno,
+        'error' => $error
+    );
+}
+
+// Turn an HTTP status / cURL result into a human readable failure reason.
+function easee_describe_auth_failure($res, $decoded)
+{
+    if (isset($res['errno']) && $res['errno'] !== 0) {
+        return 'Network/cURL error: ' . $res['error'] . ' (errno ' . $res['errno'] . ')';
+    }
+    $code = intval($res['http_code']);
+    $map = array(
+        400 => 'Bad request (check username/password)',
+        401 => 'Unauthorized - credentials or refresh token rejected, re-authentication required',
+        403 => 'Forbidden - account lacks privileges for this endpoint',
+        429 => 'Too many requests - rate limited, wait before retrying',
+        500 => 'Easee server error',
+        502 => 'Bad gateway - too many attempts, wait a couple of minutes and retry',
+        503 => 'Service unavailable - retry later'
+    );
+    $text = isset($map[$code]) ? $map[$code] : ('Unexpected HTTP status ' . $code);
+    if (is_array($decoded)) {
+        if (isset($decoded['title']) && is_string($decoded['title']) && $decoded['title'] !== '') {
+            $text .= ' - ' . $decoded['title'];
+        } elseif (isset($decoded['message']) && is_string($decoded['message']) && $decoded['message'] !== '') {
+            $text .= ' - ' . $decoded['message'];
+        }
+    } elseif ($res['body'] === '') {
+        $text .= ' - empty response body';
+    }
+    return $text;
+}
+
+// Persist a token only on success; otherwise keep the previous file and log why.
+function easee_store_token_result($res, $file_token, $url_token, $context_label, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+{
+    $decoded = json_decode($res['body'], true);
+
+    if ($res['http_code'] >= 200 && $res['http_code'] < 300 && easee_token_is_valid($decoded)) {
+        file_put_contents($file_token, $res['body']);
+        return $decoded;
+    }
+
+    if ($file_log_e !== null) {
+        easee_log('error', 'Token request failed (' . $context_label . ')', array(
+            'url' => $url_token,
+            'http_code' => $res['http_code'],
+            'reason' => easee_describe_auth_failure($res, $decoded),
+            'curl_errno' => $res['errno'],
+            'curl_error' => $res['error'],
+            'response' => ($decoded !== null ? $decoded : $res['body'])
+        ), $file_log_i, $file_log_e, $log_level);
+    }
+    return false;
+}
+
+// Get refresh and access tokens from credentials, see https://developer.easee.com/reference/account_authenticate
+function get_token($url_base, $url_token, $file_token, $username, $password, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+{
+    $postdata = json_encode(array(
+        "userName" => "$username",
+        "password" => "$password"
+    ));
+    $res = easee_auth_curl($url_base . $url_token, $postdata);
+    return easee_store_token_result($res, $file_token, $url_token, 'credentials login', $file_log_i, $file_log_e, $log_level);
 }
 
 // Get access token from refresh token, see https://developer.easee.com/reference/account_refreshtoken
-function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token)
+function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token, $file_log_i = null, $file_log_e = null, $log_level = 'info')
 {
-    $data = array(
+    $postdata = json_encode(array(
         "accessToken" => "$token",
         "refreshToken" => "$refresh_token"
-    );
-    $postdata = json_encode($data);
-    $ch = curl_init($url_base . $url_token);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-        'Content-Type: application/json'
     ));
-    $result = curl_exec($ch);
-    curl_close($ch);
-    file_put_contents($file_token, $result);
-    return json_decode($result, true);
+    $res = easee_auth_curl($url_base . $url_token, $postdata, $token);
+    return easee_store_token_result($res, $file_token, $url_token, 'token refresh', $file_log_i, $file_log_e, $log_level);
+}
+
+// Invalidate the refresh token on the Easee side and drop the local token file.
+// See https://developer.easee.com/reference/account_invalidatetoken
+function easee_invalidate_token($url_base, $accessToken, $file_token, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+{
+    $invalidated = false;
+    if (is_string($accessToken) && $accessToken !== '') {
+        // Resolve the account id (userId) required by the invalidate endpoint.
+        $profile = get_req($url_base, '/api/accounts/profile', $accessToken);
+        $accountId = (is_array($profile) && isset($profile['userId'])) ? intval($profile['userId']) : null;
+
+        if ($accountId === null) {
+            easee_log('warn', 'Could not resolve accountId for token invalidation', array(
+                'response' => $profile
+            ), $file_log_i, $file_log_e, $log_level);
+        } else {
+            $ch = curl_init($url_base . '/api/accounts/' . $accountId . '/invalidate_token');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $accessToken
+            ));
+            curl_exec($ch);
+            $http_code = intval(curl_getinfo($ch, CURLINFO_HTTP_CODE));
+            curl_close($ch);
+            $invalidated = ($http_code >= 200 && $http_code < 300);
+            easee_log($invalidated ? 'info' : 'warn', 'Requested token invalidation', array(
+                'accountId' => $accountId,
+                'http_code' => $http_code
+            ), $file_log_i, $file_log_e, $log_level);
+        }
+    }
+
+    if (file_exists($file_token)) {
+        @unlink($file_token);
+    }
+    return $invalidated;
 }
 
 // Get requests.

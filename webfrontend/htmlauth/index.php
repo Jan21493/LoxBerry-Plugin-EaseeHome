@@ -11,6 +11,31 @@ $file_log_i  = $lbplogdir.'/easee-info.log';
 $url_base    = 'https://api.easee.cloud';
 $url_tocken  = '/api/accounts/login';
 
+$config_current = json_decode(@file_get_contents($file_config), true);
+if (!is_array($config_current)) {
+    $config_current = array();
+}
+$log_level = easee_normalize_log_level(isset($config_current['log_level']) ? $config_current['log_level'] : 'info');
+
+// Token maintenance actions (renew / deactivate) are handled before the config save.
+if ($_POST && isset($_POST['token_action'])) {
+    $token_action = $_POST['token_action'];
+    if ($token_action === 'renew') {
+        $renew_user = isset($_POST['username']) ? $_POST['username'] : (isset($config_current['user']['username']) ? $config_current['user']['username'] : '');
+        $renew_pass = isset($_POST['password']) ? $_POST['password'] : (isset($config_current['user']['password']) ? $config_current['user']['password'] : '');
+        $renew_result = get_token($url_base, $url_tocken, $file_token, $renew_user, $renew_pass, $file_log_i, $file_log_e, $log_level);
+        header('Location: ' . (easee_token_is_valid($renew_result) ? 'timer.php' : 'index.php'));
+        exit;
+    }
+    if ($token_action === 'deactivate') {
+        $current_token = json_decode(@file_get_contents($file_token), true);
+        $access_token = easee_token_is_valid($current_token) ? $current_token['accessToken'] : '';
+        easee_invalidate_token($url_base, $access_token, $file_token, $file_log_i, $file_log_e, $log_level);
+        header('Location: index.php');
+        exit;
+    }
+}
+
 if ($_POST) {
     $existing_config = json_decode(@file_get_contents($file_config), true);
     if (!is_array($existing_config)) {
@@ -63,7 +88,9 @@ if ($_POST) {
     $observation_ids = empty($selected_observation_ids) ? 'none' : implode(',', $selected_observation_ids);
 
     if (file_exists($file_token)) {
-        unlink($file_token);
+        $existing_token_raw = json_decode(@file_get_contents($file_token), true);
+    } else {
+        $existing_token_raw = null;
     }
 
     $data = array(
@@ -85,8 +112,16 @@ if ($_POST) {
     );
 
     file_put_contents($file_config, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    get_token($url_base, $url_tocken, $file_token, $data['user']['username'], $data['user']['password']);
-    header("Location: timer.php");
+
+    // Only (re)create a token when none exists yet or the stored one is invalid;
+    // otherwise just persist the changed settings without a fresh login.
+    $token_created = false;
+    if (!easee_token_is_valid($existing_token_raw)) {
+        $save_result = get_token($url_base, $url_tocken, $file_token, $data['user']['username'], $data['user']['password'], $file_log_i, $file_log_e, $log_level);
+        $token_created = easee_token_is_valid($save_result);
+    }
+
+    header('Location: ' . ($token_created ? 'timer.php' : 'index.php'));
     exit;
 }
 
@@ -221,10 +256,13 @@ echo '<label for="password">' . $L['USER.PASS'] . '</label>';
 echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="password" id="password" value="' . htmlspecialchars($config['user']['password'], ENT_QUOTES) . '" type="password"></p>';
 
 if (strpos($token_str, 'accessToken') === false) {
-    echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br><br>';
-    log_e($token, $url_tocken, $file_log_e);
+    echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br>';
+    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_tocken, $file_log_e);
+    echo '<p><button type="submit" name="token_action" value="renew" data-inline="true" data-mini="true" data-icon="refresh">' . $L['MAIN.TOKEN_RENEW'] . '</button></p><br>';
 } else {
-    echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br><br>';
+    echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br>';
+    echo '<p><button type="submit" name="token_action" value="renew" data-inline="true" data-mini="true" data-icon="refresh">' . $L['MAIN.TOKEN_RENEW'] . '</button> ';
+    echo '<button type="submit" name="token_action" value="deactivate" data-inline="true" data-mini="true" data-icon="delete" data-theme="b">' . $L['MAIN.TOKEN_DEACTIVATE'] . '</button></p><br>';
     echo '<h1 class="status-h1">' . $L['WALLBOX.HEAD'] . '</h1>';
     echo '<small>' . $L['WALLBOX.DESC'] . '</small><br><br>';
     $i = 1;
