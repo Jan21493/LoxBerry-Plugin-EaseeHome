@@ -312,6 +312,12 @@ foreach ($chargerIds as $chargerId) {
         }
     }
 
+    // The charger is offline when it lost the connection to the Easee cloud.
+    // In that case chargerOpMode (and the other observations) only reflect the
+    // last known value before the box went offline, so treat them as stale.
+    $cloudConnected = easee_status_get($state, 'connectedToCloud', easee_status_get($state, 'isOnline'));
+    $isOffline = ($cloudConnected !== null && intval($cloudConnected) <= 0);
+
     $headlineClass = 'hl-grey';
     if ($opModeInt === 3) {
         $headlineClass = 'hl-green';
@@ -322,11 +328,22 @@ foreach ($chargerIds as $chargerId) {
     } elseif ($opModeInt === 5) {
         $headlineClass = 'hl-red';
     }
+    if ($isOffline) {
+        $headlineClass = 'hl-grey';
+    }
 
-    $headlineMain = ($opModeInt === null)
-        ? $L['STATUS.NO_STATE']
-        : easee_status_enum_text('opMode', $opModeInt, $L);
+    $opModeText = ($opModeInt === null) ? null : easee_status_enum_text('opMode', $opModeInt, $L);
+    $opModeDisplay = ($opModeText === null) ? $L['STATUS.NO_STATE'] : $opModeText;
+    // Value used in the op-mode detail row; flag it as last known while offline.
+    $opModeRowText = $isOffline
+        ? (($opModeText === null) ? null : $opModeText . ' (' . $L['STATUS.LAST_KNOWN'] . ')')
+        : $opModeDisplay;
+
+    $headlineMain = $isOffline ? $L['STATUS.OFFLINE'] : $opModeDisplay;
     $headlineParts = array();
+    if ($isOffline && $opModeText !== null) {
+        $headlineParts[] = $L['STATUS.OP_MODE'] . ': ' . $opModeText . ' (' . $L['STATUS.LAST_KNOWN'] . ')';
+    }
     if ($isCharging) {
         $powerText = easee_status_number_text($totalPower, 'kW', 2);
         if ($powerText !== null) {
@@ -361,7 +378,7 @@ foreach ($chargerIds as $chargerId) {
     // -----------------------------------------------------------------------
     $reasonNoCurrent = easee_status_get($state, 'reasonForNoCurrent');
     easee_status_render_group($L['STATUS.GROUP_CHARGING'], array(
-        array($L['STATUS.OP_MODE'], $headlineMain, easee_status_enum_hint('opMode', $opModeInt)),
+        array($L['STATUS.OP_MODE'], $opModeRowText, easee_status_enum_hint('opMode', $opModeInt)),
         array($L['STATUS.CHARGING_NOW'], ($opModeInt === null) ? null : ($isCharging ? $L['STATUS.VAL_YES'] : $L['STATUS.VAL_NO'])),
         array($L['STATUS.CABLE_CONNECTED'], ($cableConnected === null) ? null : ($cableConnected ? $L['STATUS.VAL_YES'] : $L['STATUS.VAL_NO'])),
         array($L['STATUS.CABLE_LOCKED'], easee_status_bool_text(easee_status_get($state, 'cableLocked'), $L)),
