@@ -78,7 +78,7 @@ function easee_describe_auth_failure($res, $decoded)
 }
 
 // Persist a token only on success; otherwise keep the previous file and log why.
-function easee_store_token_result($res, $file_token, $url_token, $context_label, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function easee_store_token_result($res, $file_token, $url_token, $context_label)
 {
     $decoded = json_decode($res['body'], true);
 
@@ -99,30 +99,30 @@ function easee_store_token_result($res, $file_token, $url_token, $context_label,
 }
 
 // Get refresh and access tokens from credentials, see https://developer.easee.com/reference/account_authenticate
-function get_token($url_base, $url_token, $file_token, $username, $password, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function get_token($url_base, $url_token, $file_token, $username, $password)
 {
     $postdata = json_encode(array(
         "userName" => "$username",
         "password" => "$password"
     ));
     $res = easee_auth_curl($url_base . $url_token, $postdata);
-    return easee_store_token_result($res, $file_token, $url_token, 'credentials login', $file_log_i, $file_log_e, $log_level);
+    return easee_store_token_result($res, $file_token, $url_token, 'credentials login');
 }
 
 // Get access token from refresh token, see https://developer.easee.com/reference/account_refreshtoken
-function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token)
 {
     $postdata = json_encode(array(
         "accessToken" => "$token",
         "refreshToken" => "$refresh_token"
     ));
     $res = easee_auth_curl($url_base . $url_token, $postdata, $token);
-    return easee_store_token_result($res, $file_token, $url_token, 'token refresh', $file_log_i, $file_log_e, $log_level);
+    return easee_store_token_result($res, $file_token, $url_token, 'token refresh');
 }
 
 // Invalidate the refresh token on the Easee side and drop the local token file.
 // See https://developer.easee.com/reference/account_invalidatetoken
-function easee_invalidate_token($url_base, $accessToken, $file_token, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function easee_invalidate_token($url_base, $accessToken, $file_token)
 {
     $invalidated = false;
     if (is_string($accessToken) && $accessToken !== '') {
@@ -1049,7 +1049,7 @@ function easee_read_all_charger_status($lbplogdir)
 }
 
 // Check response data for API errors and stop on error.
-function check_data($data, $url, $file_log = null, $file_log_i = null, $configuredLogLevel = 'info')
+function check_data($data, $url)
 {
     if (is_array($data) && array_key_exists('status', $data)) {
         $status = isset($data['status']) ? $data['status'] : 'unknown';
@@ -1065,13 +1065,13 @@ function check_data($data, $url, $file_log = null, $file_log_i = null, $configur
 }
 
 // Log error.
-function log_e($text, $url, $file_log)
+function log_e($text, $url)
 {
     LOGERR(easee_format_log_message((string)$url, array('message' => $text)));
 }
 
 // Log info.
-function log_i($text, $url, $file_log)
+function log_i($text, $url)
 {
     LOGINF(easee_format_log_message((string)$url, array('message' => $text)));
 }

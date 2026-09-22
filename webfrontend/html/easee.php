@@ -174,7 +174,7 @@ switch ($do) {
         $data = get_req($url_base, $url_get_chargers, $token['accessToken']);
 		check_data($data, $url_get_chargers);
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}        
 		$data=change_booleans_to_numbers($data);
@@ -196,7 +196,7 @@ switch ($do) {
         $data = get_req($url_base, $url_get_chargers, $token['accessToken']);
 		check_data($data, $url_get_chargers);
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}        
 		$data=change_booleans_to_numbers($data);
@@ -218,7 +218,7 @@ switch ($do) {
         $data = get_req($url_base, $url, $token['accessToken']);
 		check_data($data, $url);	
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}
 		$data=change_booleans_to_numbers($data);
@@ -242,7 +242,7 @@ switch ($do) {
             $data = get_req($url_base, $url, $token['accessToken']);
             check_data($data, $url);
             if (array_key_exists('status',$data)) {
-            echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+            echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
         exit;
 		}
 		$data=change_booleans_to_numbers($data);
@@ -265,7 +265,7 @@ switch ($do) {
         $data = get_req($url_base, $url, $token['accessToken']);
 		check_data($data, $url);
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}        	
 		$data=change_booleans_to_numbers($data);
@@ -343,7 +343,7 @@ switch ($do) {
                 'url' => $url,
                 'apiResponse' => $apiResponse
             )));
-            echo 'Somthing went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
+            echo 'Something went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
             exit;
         }
 
@@ -378,7 +378,7 @@ switch ($do) {
         $data[ 'sentAtTimeLox' ]= epoch2lox();
         $data[ 'sentAtTimeISO' ]= currtime();
         if (array_key_exists('status',$data)) {
-		    echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		    echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		    exit;
 		}		
 		$data=change_booleans_to_numbers($data);
@@ -431,7 +431,7 @@ switch ($do) {
         $data = get_req($url_base, $url, $token['accessToken']);
 		check_data($data, $url);	
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}		
 		$data=change_booleans_to_numbers($data);
@@ -460,7 +460,7 @@ switch ($do) {
 		} else {
 			check_data($data, $url);
 			if (array_key_exists('status',$data)) {
-				echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+				echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 				exit;
 			}			
 		}
@@ -495,7 +495,7 @@ switch ($do) {
 		} else {
 			check_data($data, $url);
 			if (array_key_exists('status',$data)) {
-				echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+				echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 				exit;
 			}
 		}	

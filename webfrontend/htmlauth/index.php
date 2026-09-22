@@ -7,8 +7,6 @@ include $lbphtmldir.'/easee_functions.php';
 $L = LBWeb::readlanguage("language.ini");
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
-$file_log_e  = $lbplogdir.'/easee-error.log';
-$file_log_i  = $lbplogdir.'/easee-info.log';
 $url_base    = 'https://api.easee.cloud';
 $url_tocken  = '/api/accounts/login';
 
@@ -261,7 +259,7 @@ echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0
 
 if (strpos($token_str, 'accessToken') === false) {
     echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br>';
-    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_tocken, $file_log_e);
+    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_tocken);
     echo '<p><button type="submit" name="token_action" value="renew" data-inline="true" data-mini="true" data-icon="refresh">' . $L['MAIN.TOKEN_RENEW'] . '</button></p><br>';
 } else {
     echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br>';
