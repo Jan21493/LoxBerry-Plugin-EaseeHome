@@ -128,7 +128,13 @@ function easee_invalidate_token($url_base, $accessToken, $file_token)
     if (is_string($accessToken) && $accessToken !== '') {
         // Resolve the account id (userId) required by the invalidate endpoint.
         $profile = get_req($url_base, '/api/accounts/profile', $accessToken);
-        $accountId = (is_array($profile) && isset($profile['userId'])) ? intval($profile['userId']) : null;
+        $accountId = null;
+        if (is_array($profile) && isset($profile['userId']) && is_numeric($profile['userId'])) {
+            $candidateAccountId = intval($profile['userId']);
+            if ($candidateAccountId > 0) {
+                $accountId = $candidateAccountId;
+            }
+        }
 
         if ($accountId === null) {
             LOGWARN(easee_format_log_message('Could not resolve accountId for token invalidation', array(
