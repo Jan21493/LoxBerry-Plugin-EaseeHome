@@ -545,10 +545,8 @@ switch ($do) {
         $postdata = array(
             $type => $value
         );
-		print_r($postdata);
         $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url);	
-		print_r($data);
         break;
 		
     case "post_dynamicCurrent":

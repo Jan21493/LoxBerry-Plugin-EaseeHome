@@ -8,7 +8,7 @@ $L = LBWeb::readlanguage("language.ini");
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $url_base    = 'https://api.easee.com';
-$url_tocken  = '/api/accounts/login';
+$url_token   = '/api/accounts/login';
 
 $config_current = json_decode(@file_get_contents($file_config), true);
 if (!is_array($config_current)) {
@@ -25,7 +25,7 @@ if ($_POST && isset($_POST['token_action'])) {
     if ($token_action === 'renew') {
         $renew_user = isset($_POST['username']) ? $_POST['username'] : (isset($config_current['user']['username']) ? $config_current['user']['username'] : '');
         $renew_pass = isset($_POST['password']) ? $_POST['password'] : (isset($config_current['user']['password']) ? $config_current['user']['password'] : '');
-        $renew_result = get_token($url_base, $url_tocken, $file_token, $renew_user, $renew_pass);
+        $renew_result = get_token($url_base, $url_token, $file_token, $renew_user, $renew_pass);
         header('Location: ' . (easee_token_is_valid($renew_result) ? 'timer.php' : 'index.php'));
         exit;
     }
@@ -119,7 +119,7 @@ if ($_POST) {
     // otherwise just persist the changed settings without a fresh login.
     $token_created = false;
     if (!easee_token_is_valid($existing_token_raw)) {
-        $save_result = get_token($url_base, $url_tocken, $file_token, $data['user']['username'], $data['user']['password']);
+        $save_result = get_token($url_base, $url_token, $file_token, $data['user']['username'], $data['user']['password']);
         $token_created = easee_token_is_valid($save_result);
     }
 
@@ -259,7 +259,7 @@ echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0
 
 if (strpos($token_str, 'accessToken') === false) {
     echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br>';
-    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_tocken);
+    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_token);
     echo '<p><button type="submit" name="token_action" value="renew" data-inline="true" data-mini="true" data-icon="refresh">' . $L['MAIN.TOKEN_RENEW'] . '</button></p><br>';
 } else {
     echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br>';
