@@ -131,7 +131,7 @@ function easee_invalidate_token($url_base, $accessToken, $file_token)
         $accountId = null;
         if (is_array($profile) && isset($profile['userId'])) {
             $candidateAccountId = trim((string)$profile['userId']);
-            if ($candidateAccountId !== '' && $candidateAccountId !== '0') {
+            if ($candidateAccountId !== '') {
                 $accountId = $candidateAccountId;
             }
         }

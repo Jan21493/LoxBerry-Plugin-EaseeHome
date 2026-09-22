@@ -1,5 +1,6 @@
 <?php
 require_once "loxberry_system.php";
+require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
@@ -13,6 +14,10 @@ $config = json_decode(@file_get_contents($file_config), true);
 if (!is_array($config)) {
 	$config = array();
 }
+$log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
+$log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
+$log->loglevel(easee_get_loxberry_loglevel($log_level));
+LOGSTART("Start Logging - queries.php");
 
 $accessToken = '';
 if (file_exists($file_token)) {

@@ -1,9 +1,15 @@
 <?php
 require_once "loxberry_system.php";
+require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
+$pluginConfig = json_decode(@file_get_contents($lbpconfigdir . '/easee_config.ini'), true);
+$log_level = easee_normalize_log_level(isset($pluginConfig['log_level']) ? $pluginConfig['log_level'] : 'info');
+$log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
+$log->loglevel(easee_get_loxberry_loglevel($log_level));
+LOGSTART("Start Logging - status.php");
 
 // This page never queries the Easee Cloud API. All values come from the JSON
 // responses that easee.php cached in the (RAM based) log directory.
@@ -36,7 +42,6 @@ sort($chargerIds);
 
 // Only observations that are actually polled are displayed. Fields of ids that
 // are not selected in the settings are dropped instead of showing old values.
-$pluginConfig = json_decode(@file_get_contents($lbpconfigdir . '/easee_config.ini'), true);
 $observationDefinitions = easee_get_observation_definitions();
 $activeObservationIds = easee_get_requested_observation_ids(
     isset($pluginConfig['observation_ids']) ? $pluginConfig['observation_ids'] : '',
