@@ -565,7 +565,6 @@ switch ($do) {
 		$url      = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
         $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
         check_data($data, $url);	
-		print_r($data);
 		break;		
 
     case "post_dynamicPower":
@@ -715,7 +714,6 @@ switch ($do) {
                 'switchReason' => $phase_switch_reason
             )
         ));
-        print_r($data);
         break;	
 		
     case "lock_state":
