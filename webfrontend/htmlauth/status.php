@@ -6,6 +6,7 @@ include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
 $pluginConfig = json_decode(@file_get_contents($lbpconfigdir . '/easee_config.ini'), true);
+$pluginConfig = is_array($pluginConfig) ? $pluginConfig : array();
 $log_level = easee_normalize_log_level(isset($pluginConfig['log_level']) ? $pluginConfig['log_level'] : 'info');
 $log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
 $log->loglevel(easee_get_loxberry_loglevel($log_level));
