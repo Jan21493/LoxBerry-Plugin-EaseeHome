@@ -1,21 +1,23 @@
 <?php
 require_once "loxberry_system.php";
+require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
-$file_log_e  = $lbplogdir.'/easee-error.log';
-$file_log_i  = $lbplogdir.'/easee-info.log';
-$url_base    = 'https://api.easee.cloud';
-$url_tocken  = '/api/accounts/login';
+$url_base    = 'https://api.easee.com';
+$url_token   = '/api/accounts/login';
 
 $config_current = json_decode(@file_get_contents($file_config), true);
 if (!is_array($config_current)) {
     $config_current = array();
 }
 $log_level = easee_normalize_log_level(isset($config_current['log_level']) ? $config_current['log_level'] : 'info');
+$log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
+$log->loglevel(easee_get_loxberry_loglevel($log_level));
+LOGSTART("Start Logging - index.php");
 
 // Token maintenance actions (renew / deactivate) are handled before the config save.
 if ($_POST && isset($_POST['token_action'])) {
@@ -23,14 +25,14 @@ if ($_POST && isset($_POST['token_action'])) {
     if ($token_action === 'renew') {
         $renew_user = isset($_POST['username']) ? $_POST['username'] : (isset($config_current['user']['username']) ? $config_current['user']['username'] : '');
         $renew_pass = isset($_POST['password']) ? $_POST['password'] : (isset($config_current['user']['password']) ? $config_current['user']['password'] : '');
-        $renew_result = get_token($url_base, $url_tocken, $file_token, $renew_user, $renew_pass, $file_log_i, $file_log_e, $log_level);
+        $renew_result = get_token($url_base, $url_token, $file_token, $renew_user, $renew_pass);
         header('Location: ' . (easee_token_is_valid($renew_result) ? 'timer.php' : 'index.php'));
         exit;
     }
     if ($token_action === 'deactivate') {
         $current_token = json_decode(@file_get_contents($file_token), true);
         $access_token = easee_token_is_valid($current_token) ? $current_token['accessToken'] : '';
-        easee_invalidate_token($url_base, $access_token, $file_token, $file_log_i, $file_log_e, $log_level);
+        easee_invalidate_token($url_base, $access_token, $file_token);
         header('Location: index.php');
         exit;
     }
@@ -117,7 +119,7 @@ if ($_POST) {
     // otherwise just persist the changed settings without a fresh login.
     $token_created = false;
     if (!easee_token_is_valid($existing_token_raw)) {
-        $save_result = get_token($url_base, $url_tocken, $file_token, $data['user']['username'], $data['user']['password'], $file_log_i, $file_log_e, $log_level);
+        $save_result = get_token($url_base, $url_token, $file_token, $data['user']['username'], $data['user']['password']);
         $token_created = easee_token_is_valid($save_result);
     }
 
@@ -257,7 +259,7 @@ echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0
 
 if (strpos($token_str, 'accessToken') === false) {
     echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br>';
-    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_tocken, $file_log_e);
+    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_token);
     echo '<p><button type="submit" name="token_action" value="renew" data-inline="true" data-mini="true" data-icon="refresh">' . $L['MAIN.TOKEN_RENEW'] . '</button></p><br>';
 } else {
     echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br>';

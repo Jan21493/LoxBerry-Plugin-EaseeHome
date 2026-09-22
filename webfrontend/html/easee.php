@@ -1,6 +1,7 @@
 <?php
 
 require_once "loxberry_system.php";
+require_once "loxberry_log.php";
 include 'easee_functions.php';
 error_reporting(0);
 set_time_limit(45);
@@ -9,13 +10,11 @@ set_time_limit(45);
 $url_base    = 'https://api.easee.com';
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
-$file_log_e	 = $lbplogdir.'/easee-error.log';
-$file_log_i	 = $lbplogdir.'/easee-info.log';
 //---------------------------------------------------------------------------------------------------
-$do          = ($_GET["do"]);
-$chargerId   = ($_GET["id"]);
-$type        = ($_GET["type"]);
-$value       = ($_GET["value"]);
+$do          = isset($_GET["do"]) ? $_GET["do"] : null;
+$chargerId   = isset($_GET["id"]) ? $_GET["id"] : null;
+$type        = isset($_GET["type"]) ? $_GET["type"] : null;
+$value       = isset($_GET["value"]) ? $_GET["value"] : null;
 $query_view  = isset($_GET['query_view']) && $_GET['query_view'] === '1';
 if ($query_view) {
     ob_start();
@@ -36,6 +35,9 @@ if (!is_array($token)) {
 }
 $log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
 $mqtt_topic = easee_normalize_mqtt_topic(isset($config['mqtt_topic']) ? $config['mqtt_topic'] : 'easee');
+$log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
+$log->loglevel(easee_get_loxberry_loglevel($log_level));
+LOGSTART("Start Logging - easee.php");
 $max_lifetime = 0;
 $request_context = array(
     'do' => $do,
@@ -47,7 +49,7 @@ if ($type !== null && $type !== '') {
 if ($value !== null && $value !== '') {
     $request_context['value'] = $value;
 }
-easee_log('debug', 'Received request', $request_context, $file_log_i, $file_log_e, $log_level);
+LOGDEB(easee_format_log_message('Received request', $request_context));
 
 // Start request handling.
 if (!empty($do)) {
@@ -73,23 +75,20 @@ if (!empty($do)) {
 			$url_refresh_token,
 			$file_token,
 			isset($token['accessToken']) ? $token['accessToken'] : '',
-			isset($token['refreshToken']) ? $token['refreshToken'] : '',
-			$file_log_i,
-			$file_log_e,
-			$log_level
+			isset($token['refreshToken']) ? $token['refreshToken'] : ''
 		);
 		if (easee_token_is_valid($refreshed)) {
 			$token = $refreshed;
-			easee_log('info', 'Access token created from refresh token', array(
+			LOGOK(easee_format_log_message('Access token created from refresh token', array(
 				'url' => $url_refresh_token
-			), $file_log_i, $file_log_e, $log_level);
+			)));
 		} else {
 			// A refresh token can be rejected even before it expires (revoked or
 			// idle session, see https://developer.easee.com/changelog/refresh-token-handling).
 			// Fall back to a full credential login instead of aborting.
-			easee_log('warn', 'Refresh token rejected, falling back to credential login', array(
+			LOGWARN(easee_format_log_message('Refresh token rejected, falling back to credential login', array(
 				'url' => $url_refresh_token
-			), $file_log_i, $file_log_e, $log_level);
+			)));
 			$token_time_diff = 86000;
 		}
 	}
@@ -100,16 +99,13 @@ if (!empty($do)) {
             $url_token,
             $file_token,
             isset($config['user']['username']) ? $config['user']['username'] : '',
-            isset($config['user']['password']) ? $config['user']['password'] : '',
-            $file_log_i,
-            $file_log_e,
-            $log_level
+            isset($config['user']['password']) ? $config['user']['password'] : ''
         );
         if (easee_token_is_valid($logged_in)) {
             $token = $logged_in;
-            easee_log('info', 'New token created from credentials', array(
+            LOGOK(easee_format_log_message('New token created from credentials', array(
                 'url' => $url_token
-            ), $file_log_i, $file_log_e, $log_level);
+            )));
         } else {
             // The concrete reason (HTTP status / cURL error) was already logged.
             exit;
@@ -176,9 +172,9 @@ switch ($do) {
     case "sites":
         $url_get_chargers = '/api/sites';
         $data = get_req($url_base, $url_get_chargers, $token['accessToken']);
-		check_data($data, $url_get_chargers, $file_log_e, $file_log_i, $log_level);
+		check_data($data, $url_get_chargers);
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}        
 		$data=change_booleans_to_numbers($data);
@@ -198,9 +194,9 @@ switch ($do) {
     case "chargers":
         $url_get_chargers = '/api/chargers';
         $data = get_req($url_base, $url_get_chargers, $token['accessToken']);
-		check_data($data, $url_get_chargers, $file_log_e, $file_log_i, $log_level);
+		check_data($data, $url_get_chargers);
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}        
 		$data=change_booleans_to_numbers($data);
@@ -220,9 +216,9 @@ switch ($do) {
     case "config":
         $url  = '/api/chargers/' . $chargerId . '/config';
         $data = get_req($url_base, $url, $token['accessToken']);
-		check_data($data, $url, $file_log_e);
+		check_data($data, $url);	
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}
 		$data=change_booleans_to_numbers($data);
@@ -244,9 +240,9 @@ switch ($do) {
     case "equalizer":
             $url  = '/api/equalizers/' . $chargerId . '/state';
             $data = get_req($url_base, $url, $token['accessToken']);
-            check_data($data, $url, $file_log_e);
+            check_data($data, $url);
             if (array_key_exists('status',$data)) {
-            echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+            echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
         exit;
 		}
 		$data=change_booleans_to_numbers($data);
@@ -267,9 +263,9 @@ switch ($do) {
     case "site":
         $url  = '/api/chargers/' . $chargerId . '/site';
         $data = get_req($url_base, $url, $token['accessToken']);
-		check_data($data, $url, $file_log_e);
+		check_data($data, $url);
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}        	
 		$data=change_booleans_to_numbers($data);
@@ -324,11 +320,11 @@ switch ($do) {
             $defaultObsIds
         );
 
-        easee_log('debug', 'Requesting observations', array(
+        LOGDEB(easee_format_log_message('Requesting observations', array(
             'chargerId' => $chargerId,
             'requestedObservationIds' => $requestedIds,
             'configuredObservationIds' => isset($config['observation_ids']) ? $config['observation_ids'] : ''
-        ), $file_log_i, $file_log_e, $log_level);
+        )));
 
         $url  = '/state/' . $chargerId . '/observations?ids=' . implode(',', $requestedIds);
         if (empty($requestedIds)) {
@@ -342,12 +338,12 @@ switch ($do) {
         $observationTimestamps = [];
         foreach ($requestedIds as $reqId) { if (isset($idToFieldMap[$reqId])) { $data[$idToFieldMap[$reqId]] = 0; } }
         if (!isset($apiResponse['observations']) || !is_array($apiResponse['observations'])) {
-            easee_log('error', 'No observations in response', array(
+            LOGERR(easee_format_log_message('No observations in response', array(
                 'chargerId' => $chargerId,
                 'url' => $url,
                 'apiResponse' => $apiResponse
-            ), $file_log_i, $file_log_e, $log_level);
-            echo 'Somthing went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
+            )));
+            echo 'Something went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
             exit;
         }
 
@@ -375,14 +371,14 @@ switch ($do) {
             }
         }
 
-        check_data($data, $url, $file_log_e, $file_log_i, $log_level);
+        check_data($data, $url);
 
         // Keep isOnline for compatibility and mirror connectedToCloud.
         if (isset($data['connectedToCloud'])) { $data['isOnline'] = $data['connectedToCloud']; }
         $data[ 'sentAtTimeLox' ]= epoch2lox();
         $data[ 'sentAtTimeISO' ]= currtime();
         if (array_key_exists('status',$data)) {
-		    echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		    echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		    exit;
 		}		
 		$data=change_booleans_to_numbers($data);
@@ -419,11 +415,11 @@ switch ($do) {
         if (isset($data['chargerOpMode']) && intval($data['chargerOpMode']) === 3) {
             $url = '/api/chargers/' . $chargerId . '/commands/poll_all';
             $pollAllResponse = get_req($url_base, $url, $token['accessToken']);
-            easee_log('debug', 'Triggered poll_all after active charger operation mode', array(
+            LOGDEB(easee_format_log_message('Triggered poll_all after active charger operation mode', array(
                 'chargerId' => $chargerId,
                 'chargerOpMode' => $data['chargerOpMode'],
                 'response' => $pollAllResponse
-            ), $file_log_i, $file_log_e, $log_level);
+            )));
         }
         break;	
     case "circuits":
@@ -433,9 +429,9 @@ switch ($do) {
 		$sid = $data_tmp['circuits'][0]['siteId'];
         $url  = '/api/sites/'.$sid.'/circuits/'.$cid.'/settings';
         $data = get_req($url_base, $url, $token['accessToken']);
-		check_data($data, $url, $file_log_e);	
+		check_data($data, $url);	
 		if (array_key_exists('status',$data)) {
-		echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+		echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 		exit;
 		}		
 		$data=change_booleans_to_numbers($data);
@@ -462,9 +458,9 @@ switch ($do) {
 							'sessionEnd' => '0',
 							'sessionId' => '0');
 		} else {
-			check_data($data, $url, $file_log_e);
+			check_data($data, $url);
 			if (array_key_exists('status',$data)) {
-				echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+				echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 				exit;
 			}			
 		}
@@ -497,9 +493,9 @@ switch ($do) {
 							'sessionEnd' => '0',
 							'sessionId' => '0');
 		} else {
-			check_data($data, $url, $file_log_e);
+			check_data($data, $url);
 			if (array_key_exists('status',$data)) {
-				echo 'Somthing went wrong. Error: '.$data['status'].' ('.$data['title'].')';
+				echo 'Something went wrong. Error: '.$data['status'].' ('.$data['title'].')';
 				exit;
 			}
 		}	
@@ -527,32 +523,30 @@ switch ($do) {
     case "start_charging":
         $url  = '/api/chargers/' . $chargerId . '/commands/start_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-		check_data($data, $url, $file_log_e);	        
+		check_data($data, $url);	        
         break;
     case "stop_charging":
         $url  = '/api/chargers/' . $chargerId . '/commands/stop_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "pause_charging":
         $url  = '/api/chargers/' . $chargerId . '/commands/pause_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "resume_charging":
         $url  = '/api/chargers/' . $chargerId . '/commands/resume_charging';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "post_settings":
         $url      = '/api/chargers/' . $chargerId . '/settings';
         $postdata = array(
             $type => $value
         );
-		print_r($postdata);
         $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
-		print_r($data);
+        check_data($data, $url);	
         break;
 		
     case "post_dynamicCurrent":
@@ -570,8 +564,7 @@ switch ($do) {
         );
 		$url      = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
         $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
-		print_r($data);
+        check_data($data, $url);	
 		break;		
 
     case "post_dynamicPower":
@@ -657,7 +650,7 @@ switch ($do) {
             $postdata = array("phase1" => $ampere, "phase2" => $ampere, "phase3" => $ampere, "timeToLive" => 14400);
         }
 
-        easee_log('info', 'Dynamic charging power calculation', array(
+        LOGINF(easee_format_log_message('Dynamic charging power calculation', array(
             'chargerId' => $chargerId,
             'timestamp' => currtime(),
             'requestedPowerKw' => round($requested_power_kw, 3),
@@ -670,12 +663,12 @@ switch ($do) {
                 'secondsSinceLastSwitch' => $seconds_since_switch
             ),
             'switchReason' => $phase_switch_reason
-        ), $file_log_i, $file_log_e, $log_level);
+        )));
 
         // Send calculated current values to the charger API.
         $url     = '/api/sites/'.$sid.'/circuits/'.$cid.'/dynamicCurrent';
         $data    = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e, $file_log_i, $log_level);
+        check_data($data, $url);
 
         // Track phase switches and hysteresis blocks for the status page.
         $phase_event_map = array(
@@ -721,7 +714,6 @@ switch ($do) {
                 'switchReason' => $phase_switch_reason
             )
         ));
-        print_r($data);
         break;	
 		
     case "lock_state":
@@ -730,7 +722,7 @@ switch ($do) {
             'state' => $value
         );
         $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "post_lock_state":
         $url      = '/api/chargers/' . $chargerId . '/commands/lock_state';
@@ -738,37 +730,37 @@ switch ($do) {
             'state' => $value
         );
         $data     = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;		
     case "override_schedule":
         $url  = '/api/chargers/' . $chargerId . '/commands/override_schedule';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "reboot":
         $url  = '/api/chargers/' . $chargerId . '/commands/reboot';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "force_reboot":
         $url  = '/api/chargers/' . $chargerId . '/commands/force_reboot';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	
+        check_data($data, $url);	
         break;
     case "update_firmware":
         $url  = '/api/chargers/' . $chargerId . '/commands/update_firmware';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	;
+        check_data($data, $url);	;
         break;		
     case "poll_lifetimeenergy":
         $url  = '/api/chargers/' . $chargerId . '/commands/poll_lifetimeenergy';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);	;
+        check_data($data, $url);	;
 		break;	
     case "poll_all":
         $url  = '/api/chargers/' . $chargerId . '/commands/poll_all';
         $data = post_req($url_base, $url, $token['accessToken'], $postdata);
-        check_data($data, $url, $file_log_e);
+        check_data($data, $url);
 		break;
 
 	default:

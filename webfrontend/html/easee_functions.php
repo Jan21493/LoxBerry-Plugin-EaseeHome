@@ -78,7 +78,7 @@ function easee_describe_auth_failure($res, $decoded)
 }
 
 // Persist a token only on success; otherwise keep the previous file and log why.
-function easee_store_token_result($res, $file_token, $url_token, $context_label, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function easee_store_token_result($res, $file_token, $url_token, $context_label)
 {
     $decoded = json_decode($res['body'], true);
 
@@ -87,55 +87,56 @@ function easee_store_token_result($res, $file_token, $url_token, $context_label,
         return $decoded;
     }
 
-    if ($file_log_e !== null) {
-        easee_log('error', 'Token request failed (' . $context_label . ')', array(
-            'url' => $url_token,
-            'http_code' => $res['http_code'],
-            'reason' => easee_describe_auth_failure($res, $decoded),
-            'curl_errno' => $res['errno'],
-            'curl_error' => $res['error'],
-            'response' => ($decoded !== null ? $decoded : $res['body'])
-        ), $file_log_i, $file_log_e, $log_level);
-    }
+    LOGERR(easee_format_log_message('Token request failed (' . $context_label . ')', array(
+        'url' => $url_token,
+        'http_code' => $res['http_code'],
+        'reason' => easee_describe_auth_failure($res, $decoded),
+        'curl_errno' => $res['errno'],
+        'curl_error' => $res['error'],
+        'response' => ($decoded !== null ? $decoded : $res['body'])
+    )));
     return false;
 }
 
 // Get refresh and access tokens from credentials, see https://developer.easee.com/reference/account_authenticate
-function get_token($url_base, $url_token, $file_token, $username, $password, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function get_token($url_base, $url_token, $file_token, $username, $password)
 {
     $postdata = json_encode(array(
         "userName" => "$username",
         "password" => "$password"
     ));
     $res = easee_auth_curl($url_base . $url_token, $postdata);
-    return easee_store_token_result($res, $file_token, $url_token, 'credentials login', $file_log_i, $file_log_e, $log_level);
+    return easee_store_token_result($res, $file_token, $url_token, 'credentials login');
 }
 
 // Get access token from refresh token, see https://developer.easee.com/reference/account_refreshtoken
-function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function refresh_access_token($url_base, $url_token, $file_token, $token, $refresh_token)
 {
     $postdata = json_encode(array(
         "accessToken" => "$token",
         "refreshToken" => "$refresh_token"
     ));
     $res = easee_auth_curl($url_base . $url_token, $postdata, $token);
-    return easee_store_token_result($res, $file_token, $url_token, 'token refresh', $file_log_i, $file_log_e, $log_level);
+    return easee_store_token_result($res, $file_token, $url_token, 'token refresh');
 }
 
 // Invalidate the refresh token on the Easee side and drop the local token file.
 // See https://developer.easee.com/reference/account_invalidatetoken
-function easee_invalidate_token($url_base, $accessToken, $file_token, $file_log_i = null, $file_log_e = null, $log_level = 'info')
+function easee_invalidate_token($url_base, $accessToken, $file_token)
 {
     $invalidated = false;
     if (is_string($accessToken) && $accessToken !== '') {
         // Resolve the account id (userId) required by the invalidate endpoint.
         $profile = get_req($url_base, '/api/accounts/profile', $accessToken);
-        $accountId = (is_array($profile) && isset($profile['userId'])) ? intval($profile['userId']) : null;
+        $accountId = null;
+        if (is_array($profile) && isset($profile['userId']) && $profile['userId'] !== '' && is_numeric($profile['userId'])) {
+            $accountId = intval($profile['userId']);
+        }
 
         if ($accountId === null) {
-            easee_log('warn', 'Could not resolve accountId for token invalidation', array(
+            LOGWARN(easee_format_log_message('Could not resolve accountId for token invalidation', array(
                 'response' => $profile
-            ), $file_log_i, $file_log_e, $log_level);
+            )));
         } else {
             $ch = curl_init($url_base . '/api/accounts/' . $accountId . '/invalidate_token');
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
@@ -152,10 +153,17 @@ function easee_invalidate_token($url_base, $accessToken, $file_token, $file_log_
             $http_code = intval(curl_getinfo($ch, CURLINFO_HTTP_CODE));
             curl_close($ch);
             $invalidated = ($http_code >= 200 && $http_code < 300);
-            easee_log($invalidated ? 'info' : 'warn', 'Requested token invalidation', array(
-                'accountId' => $accountId,
-                'http_code' => $http_code
-            ), $file_log_i, $file_log_e, $log_level);
+            if ($invalidated) {
+                LOGOK(easee_format_log_message('Requested token invalidation', array(
+                    'accountId' => $accountId,
+                    'http_code' => $http_code
+                )));
+            } else {
+                LOGWARN(easee_format_log_message('Requested token invalidation', array(
+                    'accountId' => $accountId,
+                    'http_code' => $http_code
+                )));
+            }
         }
     }
 
@@ -296,38 +304,32 @@ function easee_normalize_log_level($level)
     return $normalized;
 }
 
-// Check if message level should be logged.
-function easee_should_log($messageLevel, $configuredLevel)
+// Map Easee log levels to LoxBerry log levels.
+function easee_get_loxberry_loglevel($level)
 {
     $levels = array(
-        'error' => 0,
-        'warn' => 1,
-        'info' => 2,
-        'debug' => 3
+        'error' => 3,
+        'warn' => 4,
+        'info' => 6,
+        'debug' => 7
     );
-
-    $messageLevel = easee_normalize_log_level($messageLevel);
-    $configuredLevel = easee_normalize_log_level($configuredLevel);
-    return $levels[$messageLevel] <= $levels[$configuredLevel];
+    $level = easee_normalize_log_level($level);
+    return $levels[$level];
 }
 
-// Write log line with level and context.
-function easee_log($level, $message, $context, $file_log_i, $file_log_e, $configuredLevel = 'info')
+// Append context data to a log message.
+function easee_format_log_message($message, $context = array())
 {
-    $level = easee_normalize_log_level($level);
-    if (!easee_should_log($level, $configuredLevel)) {
-        return false;
-    }
-
-    $time = date("Y-m-d H:i:s");
-    $line = strtoupper($level) . ': ' . $time . ' - ' . $message;
     if (is_array($context) && !empty($context)) {
-        $line .= ' - ' . json_encode($context, JSON_UNESCAPED_SLASHES);
+        $encoded = json_encode($context, JSON_UNESCAPED_SLASHES);
+        if ($encoded !== false) {
+            return $message . ' - ' . $encoded;
+        }
     }
-
-    $target = ($level === 'error') ? $file_log_e : $file_log_i;
-    file_put_contents($target, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
-    return true;
+    if (!is_array($context) && $context !== null && $context !== '') {
+        return $message . ' - ' . strval($context);
+    }
+    return $message;
 }
 
 // Get charger observation id definitions.
@@ -1050,33 +1052,29 @@ function easee_read_all_charger_status($lbplogdir)
 }
 
 // Check response data for API errors and stop on error.
-function check_data($data, $url, $file_log, $file_log_i = null, $configuredLogLevel = 'info')
+function check_data($data, $url)
 {
-    if (array_key_exists('status', $data)) {
+    if (is_array($data) && array_key_exists('status', $data)) {
         $status = isset($data['status']) ? $data['status'] : 'unknown';
         $title = isset($data['title']) ? $data['title'] : 'unknown';
         echo 'Something went wrong. Error: ' . $status . ' (' . $title . ')';
 
-        if ($file_log_i === null) {
-            $file_log_i = $file_log;
-        }
-
-        easee_log('error', 'API request failed', array(
+        LOGERR(easee_format_log_message('API request failed', array(
             'url' => $url,
             'response' => $data
-        ), $file_log_i, $file_log, $configuredLogLevel);
+        )));
         exit;
     }
 }
 
 // Log error.
-function log_e($text, $url, $file_log)
+function log_e($text, $url)
 {
-    easee_log('error', (string)$url, array('message' => $text), $file_log, $file_log, 'debug');
+    LOGERR(easee_format_log_message((string)$url, array('message' => $text)));
 }
 
 // Log info.
-function log_i($text, $url, $file_log)
+function log_i($text, $url)
 {
-    easee_log('info', (string)$url, array('message' => $text), $file_log, $file_log, 'debug');
+    LOGINF(easee_format_log_message((string)$url, array('message' => $text)));
 }
