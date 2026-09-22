@@ -182,8 +182,14 @@ function get_req($url_base, $url_req, $token)
         'Content-Type: application/json',
         'Authorization: Bearer ' . $token
     ));
+    LOGDEB(easee_format_log_message('Executing GET request via curl', array(
+        'url' => $url_base . $url_req
+    )));
     $data = curl_exec($ch);
     curl_close($ch);
+    LOGDEB(easee_format_log_message('Received response via curl', array(
+        'response' => $data
+    )));
     return json_decode($data, true);
 }
 
@@ -199,8 +205,15 @@ function post_req($url_base, $url_req, $token, $data)
         'Content-Type: application/json',
         'Authorization: Bearer ' . $token
     ));
+    LOGDEB(easee_format_log_message('Executing POST request via curl', array(
+        'url' => $url_base . $url_req,
+        'data' => $data_string
+    )));
     $data = curl_exec($ch);
     curl_close($ch);
+    LOGDEB(easee_format_log_message('Received response via curl', array(
+        'response' => $data
+    )));
     return json_decode($data, true);
 }
 
@@ -238,8 +251,17 @@ function send_udp($id, $message, $ms_ip, $ms_port)
 
     if ($socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP)) {
         socket_sendto($socket, $message, strlen($message), 0, $ms_ip, $ms_port);
+        LOGDEB(easee_format_log_message('Sent UDP message', array(
+            'message' => $message,
+            'ms_ip' => $ms_ip,
+            'ms_port' => $ms_port
+        )));
     } else {
         print("can't create socket\n");
+        LOGERR(easee_format_log_message('Failed to create UDP socket', array(
+            'ms_ip' => $ms_ip,
+            'ms_port' => $ms_port
+        )));
     }
 }
 
@@ -263,10 +285,18 @@ function send_mqtt($id, $message, $topic = 'easee')
     if ($mqtt->connect(true, null, $creds['brokeruser'], $creds['brokerpass'])) {
         foreach ($message as $x => $val) {
             $mqtt->publish($topic . "/" . $id . "/" . $x, $val, 0, 1);
+            LOGDEB(easee_format_log_message('Published MQTT message', array(
+                'topic' => $topic . "/" . $id . "/" . $x,
+                'value' => $val
+            )));
         }
         $mqtt->close();
     } else {
         echo "MQTT connection failed";
+        LOGERR(easee_format_log_message('Failed to connect to MQTT broker', array(
+            'topic' => $topic,
+            'client_id' => $client_id
+        )));
     }
 }
 
