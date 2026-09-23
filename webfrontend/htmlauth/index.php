@@ -15,7 +15,7 @@ if (!is_array($config_current)) {
     $config_current = array();
 }
 $log_level = easee_normalize_log_level(isset($config_current['log_level']) ? $config_current['log_level'] : 'info');
-$log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
+$log = LBLog::newLog([ "name" => "Sonstiges", "stderr" => 1, "addtime" => 1 ]);
 $log->loglevel(easee_get_loxberry_loglevel($log_level));
 LOGSTART("Start Logging - index.php");
 
@@ -321,21 +321,6 @@ echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0
 echo '<label for="udpport">' . $L['RETURN.UDP_PORT'] . '</label>';
 echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0;"><input data-inline="true" data-mini="true" name="udpport" id="udpport" value="' . htmlspecialchars($config['miniserver']['port'], ENT_QUOTES) . '" type="text"></p>';
 echo '<br><small>' . $L['RETURN.HINT'] . '</small>';
-echo '</fieldset>';
-
-// Logging settings.
-echo '<fieldset style="margin-bottom:12px; padding:10px;">';
-echo '<h1 class="status-h1">' . $L['LOGGING.HEAD'] . '</h1>';
-echo '<small>' . $L['LOGGING.DESC'] . '</small><br><br>';
-echo '<label for="log_level">' . $L['LOGGING.LEVEL'] . '</label>';
-echo '<select name="log_level" id="log_level">';
-$log_levels = array('error' => $L['LOGGING.ERROR'], 'warn' => $L['LOGGING.WARN'], 'info' => $L['LOGGING.INFO'], 'debug' => $L['LOGGING.DEBUG']);
-foreach ($log_levels as $level => $label) {
-    $selected = (easee_normalize_log_level($config['log_level']) === $level) ? ' selected' : '';
-    echo '<option value="' . $level . '"' . $selected . '>' . $label . '</option>';
-}
-echo '</select>';
-echo '<br><small>' . $L['LOGGING.HINT'] . '</small>';
 echo '</fieldset>';
 
 // Observation settings.
