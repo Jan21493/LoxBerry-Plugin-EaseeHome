@@ -44,9 +44,16 @@ if (!is_array($token)) {
 }
 $log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
 $mqtt_topic = easee_normalize_mqtt_topic(isset($config['mqtt_topic']) ? $config['mqtt_topic'] : 'easee');
-$log = LBLog::newLog([ "name" => "EaseeHome", "stderr" => 1, "addtime" => 1 ]);
+// One logfile per day (not per call) so frequent Easee API calls don't flood the logfile list.
+$log = LBLog::newLog([
+    "name" => "Easee API Calls",
+    "filename" => $lbplogdir . '/' . date('Ymd') . '_EaseeAPICalls.log',
+    "append" => 1,
+    "stderr" => 1,
+    "addtime" => 1
+]);
 $log->loglevel(easee_get_loxberry_loglevel($log_level));
-LOGSTARTeasee.php: Start processing");
+LOGSTART("easee.php: Start processing");
 $max_lifetime = 0;
 $request_context = array(
     'do' => $do,

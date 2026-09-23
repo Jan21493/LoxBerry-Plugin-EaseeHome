@@ -1,7 +1,9 @@
 <?php
 require_once "loxberry_system.php";
+require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 require_once "Config/Lite.php";
+include $lbphtmldir.'/easee_functions.php';
 
 $L = LBWeb::readlanguage("language.ini");
 
@@ -23,34 +25,30 @@ $navbar[4]['URL'] = 'queries.php';
 // NAVBAR
 $navbar[3]['active'] = True;
 
-LBWeb::lbheader($template_title, $helplink, $helptemplate);
+$file_config = $lbpconfigdir.'/easee_config.ini';
 
-$file_log_e  = $lbplogdir . '/easee-error.log';
-$file_log_i  = $lbplogdir . '/easee-info.log';
-$delete_feedback = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_log'])) {
-    $log_to_delete = $_POST['delete_log'];
-    $target_file = '';
-    if ($log_to_delete === 'error') {
-        $target_file = $file_log_e;
-    } elseif ($log_to_delete === 'info') {
-        $target_file = $file_log_i;
+// Save the log level. The rest of the config is left untouched.
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['log_level'])) {
+    $existing_config = json_decode(@file_get_contents($file_config), true);
+    if (!is_array($existing_config)) {
+        $existing_config = array();
     }
-
-    if ($target_file !== '') {
-        if (file_exists($target_file)) {
-            if (@unlink($target_file)) {
-                $delete_feedback = $L['LOGFILES.DELETE_SUCCESS'];
-            } else {
-                $delete_feedback = $L['LOGFILES.DELETE_FAILED'];
-            }
-        } else {
-            $delete_feedback = $L['LOGFILES.DELETE_MISSING'];
-        }
-    }
+    $existing_config['log_level'] = easee_normalize_log_level($_POST['log_level']);
+    file_put_contents($file_config, json_encode($existing_config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    header('Location: log.php');
+    exit;
 }
 
-//LOGFILES
+$config = json_decode(@file_get_contents($file_config), true);
+if (!is_array($config)) {
+    $config = array();
+}
+if (!isset($config['log_level'])) {
+    $config['log_level'] = 'info';
+}
+
+LBWeb::lbheader($template_title, $helplink, $helptemplate);
+
 echo '<img src="logo.png" alt="Easee Home">';
 
 echo '<style>'
@@ -59,35 +57,38 @@ echo '<style>'
 	.'h3.status-h3{font-size:15px;font-weight:bold;color:#333;margin:10px 0 8px;}'
 	.'</style>';
 
-echo '<h1 class="status-h1">'. $L['LOGFILES.HEAD']. '</h1>';
-echo '<form method="post" action="log.php" style="margin-bottom:12px;">';
-echo '<button type="submit" name="delete_log" value="error" data-inline="true" data-mini="true">' . $L['LOGFILES.DELETE_ERROR_BUTTON'] . '</button> ';
-echo '<button type="submit" name="delete_log" value="info" data-inline="true" data-mini="true">' . $L['LOGFILES.DELETE_INFO_BUTTON'] . '</button>';
+// Logging level (moved here from the settings tab).
+echo '<fieldset style="margin-bottom:12px; padding:10px;">';
+echo '<h1 class="status-h1">' . $L['LOGGING.HEAD'] . '</h1>';
+echo '<small>' . $L['LOGGING.DESC'] . '</small><br><br>';
+echo '<form method="post" action="log.php">';
+echo '<label for="log_level">' . $L['LOGGING.LEVEL'] . '</label>';
+echo '<select name="log_level" id="log_level">';
+$log_levels = array('error' => $L['LOGGING.ERROR'], 'warn' => $L['LOGGING.WARN'], 'info' => $L['LOGGING.INFO'], 'debug' => $L['LOGGING.DEBUG']);
+foreach ($log_levels as $level => $label) {
+    $selected = (easee_normalize_log_level($config['log_level']) === $level) ? ' selected' : '';
+    echo '<option value="' . $level . '"' . $selected . '>' . $label . '</option>';
+}
+echo '</select>';
+echo '<br><small>' . $L['LOGGING.HINT'] . '</small>';
+echo '<p><input data-role="button" data-inline="true" data-mini="true" type="submit" data-icon="check" value="' . $L['MAIN.SAVE'] . '"></p>';
 echo '</form>';
-if ($delete_feedback !== '') {
-    echo '<small>' . htmlspecialchars($delete_feedback, ENT_QUOTES) . '</small><br><br>';
-}
+echo '</fieldset>';
 
-if ($handle = opendir($lbplogdir)) {
-    while (false !== ($entry = readdir($handle))) {
-        if ($entry != "." && $entry != "..") {
-          if (is_dir($lbplogdir . '/' . $entry)) {
-            continue;
-          }
-          $lowerEntry = strtolower($entry);
-          if (strpos($lowerEntry, 'token.ini') !== false || strpos($lowerEntry, 'state.log') !== false || strpos($lowerEntry, 'lock-date') !== false) {
-            continue;
-          }
-          if (preg_match('/^easee_status.*\.json(\.lock)?$/', $lowerEntry)) {
-            continue;
-          }
-          echo '<div class="ui-corner-all ui-shadow">';
-          echo '<a id="btnlogs" data-role="button" href="/admin/system/tools/logfile.cgi?logfile=plugins/easee_home/'. $entry. '&header=html&format=template" target="_blank" data-inline="true" data-mini="true">'.$entry. '</a>';
-          echo '</div>';
-        }
-    }
-    closedir($handle);
-}
+// Logfiles, grouped like in the TeslaCmd plugin: one group per log name.
+echo '<h1 class="status-h1">' . $L['LOGFILES.HEAD'] . '</h1>';
+
+echo '<h2 class="charger-head">Easee API Calls</h2>';
+echo '<small>' . $L['LOGFILES.GROUP_API_DESC'] . '</small>';
+echo LBWeb::loglist_html(array('NAME' => 'Easee API Calls'));
+
+echo '<h2 class="charger-head">Testbereich</h2>';
+echo '<small>' . $L['LOGFILES.GROUP_TEST_DESC'] . '</small>';
+echo LBWeb::loglist_html(array('NAME' => 'Testbereich'));
+
+echo '<h2 class="charger-head">Sonstiges</h2>';
+echo '<small>' . $L['LOGFILES.GROUP_OTHER_DESC'] . '</small>';
+echo LBWeb::loglist_html(array('NAME' => 'Sonstiges'));
 
 LBWeb::lbfooter();
 ?>
