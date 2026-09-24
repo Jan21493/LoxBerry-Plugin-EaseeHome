@@ -3,23 +3,20 @@
 require_once "loxberry_system.php";
 require_once "loxberry_log.php";
 include 'easee_functions.php';
+
 // Request error reporting and logging configuration
 error_reporting(E_ALL);
-
-// Prevent errors from being displayed in the user's browser
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
-
-// Enable error logging to a file
 ini_set('log_errors', '1');
-//ini_set('error_log', $lbplogdir.'/easee_errors.log');
+ini_set('error_log', $lbplogdir.'/easee_php_errors.log');
 set_time_limit(45);
 
 // Configuration.
 $url_base    = 'https://api.easee.com';
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
-//---------------------------------------------------------------------------------------------------
+
 $do          = isset($_GET["do"]) ? $_GET["do"] : null;
 $chargerId   = isset($_GET["id"]) ? $_GET["id"] : null;
 $type        = isset($_GET["type"]) ? $_GET["type"] : null;
@@ -28,10 +25,8 @@ $query_view  = isset($_GET['query_view']) && $_GET['query_view'] === '1';
 if ($query_view) {
     ob_start();
 }
-// Additional context stored together with the cached response of this call.
 $cache_context_extra = array();
-//---------------------------------------------------------------------------------------------------
-// Read config and token files.
+
 $configRaw = @file_get_contents($file_config);
 $tokenRaw = @file_get_contents($file_token);
 $config = json_decode($configRaw, true);
@@ -42,19 +37,35 @@ if (!is_array($config)) {
 if (!is_array($token)) {
     $token = array();
 }
+
 $log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
 $mqtt_topic = easee_normalize_mqtt_topic(isset($config['mqtt_topic']) ? $config['mqtt_topic'] : 'easee');
-// One logfile per day (not per call) so frequent Easee API calls don't flood the logfile list.
-$log = LBLog::newLog([
-    "name" => "Easee API Calls",
-    "filename" => $lbplogdir . '/' . date('Ymd') . '_EaseeAPICalls.log',
-    "append" => 1,
-    "stderr" => 1,
-    "addtime" => 1
-]);
-$log->loglevel(easee_get_loxberry_loglevel($log_level));
-LOGSTART("easee.php: Start processing");
-$max_lifetime = 0;
+
+// Session-based daily logging 
+$daily_filename = $lbplogdir . "/easeeAPIcalls_" . date('Y-m-d') . ".log";
+$log_file_exists = file_exists($daily_filename);
+
+// We create the log object
+$log_args = [
+    "name"     => "Easee API Calls",
+    "filename" => $daily_filename,
+    "addtime"  => 1
+];
+if ($log_file_exists) {
+    $log_args["append"] = 1; // Only append if the file already exists
+}
+
+// Create a new daily log object
+$my_logger = LBLog::newLog($log_args);
+$my_logger->loglevel(easee_get_loxberry_loglevel($log_level));
+$GLOBALS['stdLog'] = $my_logger;
+
+// LOGSTART may only be executed directly once a day
+if (!$log_file_exists) {
+    // If the file is new, we call the original LOGSTART
+    LOGSTART("easee.php: API calls for " . date('Y-m-d'));
+}
+
 $request_context = array(
     'do' => $do,
     'chargerId' => $chargerId
@@ -65,7 +76,10 @@ if ($type !== null && $type !== '') {
 if ($value !== null && $value !== '') {
     $request_context['value'] = $value;
 }
-LOGINF(easee_format_log_message('("============================ START OF easee.php: Received request', $request_context));
+
+LOGINF(easee_format_log_message('START OF easee.php: Received request', $request_context));
+
+$max_lifetime = 0;
 
 // Start request handling.
 if (!empty($do)) {
@@ -184,24 +198,21 @@ $settings_type = array(
 if (in_array("$do", $do_id)) {
     if (empty($chargerId)) {
         echo '!! id is missing !!';
-        LOGERR(easee_format_log_message('END OF easee.php: Missing charger ID', array(
-        )));
+        LOGERR(easee_format_log_message('END OF easee.php: Missing charger ID', array()));
         exit;
     }
 }
 if ($do == 'post_settings') {
     if (!in_array("$type", $settings_type)) {
         echo '!! type is missing !!';
-        LOGERR(easee_format_log_message('END OF easee.php: Missing type', array(
-        )));
+        LOGERR(easee_format_log_message('END OF easee.php: Missing type', array()));
         exit;
     }
 }
 if (in_array("$do", $do_value)) {
     if (empty($value)) {
         echo '!! value is missing !!';
-        LOGERR(easee_format_log_message('END OF easee.php: Missing value', array(
-        )));
+        LOGERR(easee_format_log_message('END OF easee.php: Missing value', array()));
         exit;
     }
 }
@@ -396,13 +407,12 @@ switch ($do) {
         // Pre-initialize all requested fields with defaults.
         $data = [];
         $observationTimestamps = [];
-        foreach ($requestedIds as $reqId) { if (isset($idToFieldMap[$reqId])) { $data[$idToFieldMap[$reqId]] = 0; } }
+        foreach ($requestedIds as $reqId) {
+            if (isset($idToFieldMap[$reqId])) {
+                $data[$idToFieldMap[$reqId]] = 0;
+            }
+        }
         if (!isset($apiResponse['observations']) || !is_array($apiResponse['observations'])) {
-            LOGERR(easee_format_log_message('No observations in response', array(
-                'chargerId' => $chargerId,
-                'url' => $url,
-                'apiResponse' => $apiResponse
-            )));
             echo 'Something went wrong. Error: no \'observations\' in response for ' . $url . ' (API response: ' . print_r($apiResponse, true) . '). ';
             LOGERR(easee_format_log_message('END OF easee.php: No observations in response', array(
                 'chargerId' => $chargerId,
@@ -902,6 +912,6 @@ if ($query_view) {
         echo '<pre style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px;">' . htmlspecialchars($raw_output === '' ? 'OK' : $raw_output, ENT_QUOTES, 'UTF-8') . '</pre>';
     }
 }
-LOGDEB(easee_format_log_message('============================ END OF easee.php: Finished processing!', array()));
+LOGDEB(easee_format_log_message('END OF easee.php: Finished processing!', array()));
 exit();
 ?>

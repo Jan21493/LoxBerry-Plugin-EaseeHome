@@ -1,5 +1,7 @@
 <?php
 
+require_once "loxberry_log.php"; 
+
 function easee_get_token_file($lbplogdir)
 {
     $tokenDir = rtrim($lbplogdir, '/') . '/token';
@@ -21,7 +23,11 @@ function easee_token_is_valid($token)
 // Perform an authentication related POST and return body plus transport details.
 function easee_auth_curl($url, $postdata, $bearer = null)
 {
-    $headers = array('Content-Type: application/json');
+    $headers = array(
+        'Content-Type: application/json',
+        'Accept: application/json',
+        'User-Agent: LoxBerry-Easee-Plugin/4.0'
+    );
     if ($bearer !== null && $bearer !== '') {
         $headers[] = 'Authorization: Bearer ' . $bearer;
     }
@@ -31,7 +37,7 @@ function easee_auth_curl($url, $postdata, $bearer = null)
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -82,17 +88,32 @@ function easee_store_token_result($res, $file_token, $url_token, $context_label)
 {
     $decoded = json_decode($res['body'], true);
 
-    if ($res['http_code'] >= 200 && $res['http_code'] < 300 && easee_token_is_valid($decoded)) {
-        file_put_contents($file_token, $res['body']);
-        return $decoded;
+    if ($res['http_code'] >= 200 && $res['http_code'] < 300) {
+        if (easee_token_is_valid($decoded)) {
+            file_put_contents($file_token, $res['body']);
+            return $decoded;
+        } else {
+            // If the status is 200 but the JSON format does not provide the expected 'accessToken'
+            LOGERR(easee_format_log_message('Token structure invalid (' . $context_label . ') - Missing accessToken key', array(
+                'url' => $url_token,
+                'http_code' => $res['http_code']
+            )));
+            LOGDEB(easee_format_log_message('Additional debug info', array(
+                'raw_response' => $res['body'] // Writes the exact response to the log for analysis
+            )));
+            return false;
+        }
     }
 
+    // Regular error branch for real HTTP errors (>= 300)
     LOGERR(easee_format_log_message('Token request failed (' . $context_label . ')', array(
         'url' => $url_token,
         'http_code' => $res['http_code'],
         'reason' => easee_describe_auth_failure($res, $decoded),
         'curl_errno' => $res['errno'],
-        'curl_error' => $res['error'],
+        'curl_error' => $res['error']
+    )));
+    LOGDEB(easee_format_log_message('Additional debug info', array(
         'response' => ($decoded !== null ? $decoded : $res['body'])
     )));
     return false;
@@ -185,12 +206,43 @@ function get_req($url_base, $url_req, $token)
     LOGDEB(easee_format_log_message('Executing GET request via curl', array(
         'url' => $url_base . $url_req
     )));
+
     $data = curl_exec($ch);
+
+    // Get HTTP-Statuscode
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    // Check for potential connection errors (cURL errors)
+    if ($data === false) {
+        $error_msg = curl_error($ch);
+        LOGERR("cURL connection error: " . $error_msg);
+        curl_close($ch);
+        return array('status' => 500, 'title' => 'cURL Error: ' . $error_msg);
+    }
+    
     curl_close($ch);
+    
     LOGDEB(easee_format_log_message('Received response via curl', array(
+        'http_code' => $http_code,
         'response' => $data
     )));
-    return json_decode($data, true);
+    
+    // Parse response
+    $result = json_decode($data, true);
+    
+    // Evaluate based on the HTTP status code. OK responses are 2xx
+    if ($http_code < 200 || $http_code >= 300) {
+        // If the Easee API does not return JSON on errors, build our own error array
+        if (!is_array($result)) {
+            $result = array();
+        }
+        // Add/overwrite the status so that the main script (easee.php) recognizes the error
+        $result['status'] = $http_code;
+        if (!isset($result['title'])) {
+            $result['title'] = 'HTTP Error ' . $http_code;
+        }
+    }
+    return $result;
 }
 
 // Post requests.
@@ -205,16 +257,50 @@ function post_req($url_base, $url_req, $token, $data)
         'Content-Type: application/json',
         'Authorization: Bearer ' . $token
     ));
+    
     LOGDEB(easee_format_log_message('Executing POST request via curl', array(
         'url' => $url_base . $url_req,
         'data' => $data_string
     )));
-    $data = curl_exec($ch);
+    
+    $response_data = curl_exec($ch);
+    
+    // Get HTTP-Statuscode
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    // Check for potential connection errors (cURL errors)
+    if ($response_data === false) {
+        $error_msg = curl_error($ch);
+        LOGERR("cURL connection error on POST: " . $error_msg);
+        curl_close($ch);
+        return array('status' => 500, 'title' => 'cURL Error: ' . $error_msg);
+    }
+    
     curl_close($ch);
+    
     LOGDEB(easee_format_log_message('Received response via curl', array(
-        'response' => $data
+        'http_code' => $http_code,
+        'response' => $response_data
     )));
-    return json_decode($data, true);
+    
+    // Parse response
+    $result = json_decode($response_data, true);
+    
+    // Evaluate based on the HTTP status code
+    // Check if the code is NOT in the successful 2xx range (e.g., 400, 401, 404, 500)
+    if ($http_code < 200 || $http_code >= 300) {
+        // If the API does not return valid JSON on errors, initialize the array
+        if (!is_array($result)) {
+            $result = array();
+        }
+        // Add/overwrite the status for error checking in the main script
+        $result['status'] = $http_code;
+        if (!isset($result['title'])) {
+            $result['title'] = 'HTTP Error ' . $http_code;
+        }
+    }
+    
+    return $result;
 }
 
 // Send JSON.
@@ -273,17 +359,55 @@ function send_mqtt($id, $message, $topic = 'easee')
 
     $topic = easee_normalize_mqtt_topic($topic);
 
-    foreach ($message as $i => $value) {
-        if (empty($value)) {
-            $message[$i] = 0;
+    // Falls die ID leer ist (wie bei "sites"), nutzen wir die ID aus dem Datensatz als Fallback
+    if (empty($id) && is_array($message)) {
+        // Falls es eine Liste von Sites/Chargers ist, nehmen wir das erste Element
+        $first_element = reset($message);
+        if (is_array($first_element) && isset($first_element['id'])) {
+            $id = $first_element['id'];
+        } elseif (isset($message['id'])) {
+            $id = $message['id'];
+        }
+    }
+    
+    if (empty($id)) {
+        $id = "0"; // Absicherung gegen leere Topics
+    }
+
+    // Hilfsfunktion, um verschachtelte Arrays in flache MQTT-Pfade aufzulösen
+    $flatten_array = function($array, $prefix = '') use (&$flatten_array) {
+        $result = array();
+        foreach ($array as $key => $value) {
+            $new_key = $prefix === '' ? $key : $prefix . '/' . $key;
+            if (is_array($value)) {
+                $result = array_merge($result, $flatten_array($value, $new_key));
+            } else {
+                $result[$new_key] = $value;
+            }
+        }
+        return $result;
+    };
+
+    // Daten flachrechnen
+    $flat_message = $flatten_array($message);
+
+    // Booleans und Leerwerte normieren
+    foreach ($flat_message as $i => $value) {
+        if (is_bool($value)) {
+            $flat_message[$i] = $value ? 1 : 0;
+        }
+        if ($value === null || $value === '') {
+            $flat_message[$i] = 0;
         }
     }
 
     $creds = mqtt_connectiondetails();
     $client_id = uniqid(gethostname() . "_client");
     $mqtt = new Bluerhinos\phpMQTT($creds['brokerhost'], $creds['brokerport'], $client_id);
+    
     if ($mqtt->connect(true, null, $creds['brokeruser'], $creds['brokerpass'])) {
-        foreach ($message as $x => $val) {
+        foreach ($flat_message as $x => $val) {
+            // Sendet die Daten sauber aufgeschlüsselt (z.B. easee/351846/0/address/zip)
             $mqtt->publish($topic . "/" . $id . "/" . $x, $val, 0, 1);
             LOGDEB(easee_format_log_message('Published MQTT message', array(
                 'topic' => $topic . "/" . $id . "/" . $x,
@@ -291,12 +415,14 @@ function send_mqtt($id, $message, $topic = 'easee')
             )));
         }
         $mqtt->close();
+        return true;
     } else {
         echo "MQTT connection failed";
         LOGERR(easee_format_log_message('Failed to connect to MQTT broker', array(
             'topic' => $topic,
             'client_id' => $client_id
         )));
+        return false;
     }
 }
 
@@ -1093,18 +1219,7 @@ function check_data($data, $url)
             'url' => $url,
             'response' => $data
         )));
-        exit;
+        return false;
     }
-}
-
-// Log error.
-function log_e($text, $url)
-{
-    LOGERR(easee_format_log_message((string)$url, array('message' => $text)));
-}
-
-// Log info.
-function log_i($text, $url)
-{
-    LOGINF(easee_format_log_message((string)$url, array('message' => $text)));
+    return true;
 }

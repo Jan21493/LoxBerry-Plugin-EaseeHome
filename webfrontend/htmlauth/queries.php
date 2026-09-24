@@ -1,10 +1,9 @@
 <?php
 require_once "loxberry_system.php";
-require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
-$L = LBWeb::readlanguage("language.ini");
+$L = LBSystem::readlanguage("language.ini");
 $file_token = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $url_base = 'https://api.easee.com';
@@ -14,10 +13,6 @@ $config = json_decode(@file_get_contents($file_config), true);
 if (!is_array($config)) {
 	$config = array();
 }
-$log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
-$log = LBLog::newLog([ "name" => "Testbereich", "stderr" => 1, "addtime" => 1 ]);
-$log->loglevel(easee_get_loxberry_loglevel($log_level));
-LOGSTART("Start Logging - queries.php");
 
 $accessToken = '';
 if (file_exists($file_token)) {
@@ -104,15 +99,16 @@ $template_title = "EaseeHome";
 $helplink = $L['LINKS.WIKI'];
 $helptemplate = "pluginhelp.html";
 
-$navbar[1]['Name'] = $L['NAVBAR.FIRST'];
+$navbar[1]['Name'] = $L['NAVBAR.SETTINGS'];
 $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = $L['NAVBAR.STATUS'];
 $navbar[2]['URL'] = 'status.php';
-$navbar[3]['Name'] = $L['NAVBAR.SECOND'];
-$navbar[3]['URL'] = 'log.php';
-$navbar[4]['Name'] = $L['NAVBAR.THIRD'];
-$navbar[4]['URL'] = 'queries.php';
-$navbar[4]['active'] = True;
+$navbar[3]['Name'] = $L['NAVBAR.TESTAREA'];
+$navbar[3]['URL'] = 'queries.php';
+$navbar[4]['Name'] = $L['NAVBAR.LOG'];
+$navbar[4]['URL'] = 'log.php';
+
+$navbar[3]['active'] = True;
 
 $copy_icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
 

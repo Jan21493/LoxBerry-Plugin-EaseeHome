@@ -5,26 +5,6 @@ require_once "loxberry_web.php";
 require_once "Config/Lite.php";
 include $lbphtmldir.'/easee_functions.php';
 
-$L = LBWeb::readlanguage("language.ini");
-
-$template_title = "EaseeHome";
-$helplink = $L['LINKS.WIKI'];
-$helptemplate = "pluginhelp.html";
-
-$navbar[1]['Name'] = $L['NAVBAR.FIRST'];
-$navbar[1]['URL'] = 'index.php';
-
-$navbar[2]['Name'] = $L['NAVBAR.STATUS'];
-$navbar[2]['URL'] = 'status.php';
-$navbar[3]['Name'] = $L['NAVBAR.SECOND'];
-$navbar[3]['URL'] = 'log.php';
-$navbar[4]['Name'] = $L['NAVBAR.THIRD'];
-$navbar[4]['URL'] = 'queries.php';
-
-
-// NAVBAR
-$navbar[3]['active'] = True;
-
 $file_config = $lbpconfigdir.'/easee_config.ini';
 
 // Save the log level. The rest of the config is left untouched.
@@ -39,6 +19,25 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
     exit;
 }
 
+$L = LBSystem::readlanguage("language.ini");
+
+$template_title = "EaseeHome";
+$helplink = $L['LINKS.WIKI'];
+$helptemplate = "pluginhelp.html";
+
+$navbar[1]['Name'] = $L['NAVBAR.SETTINGS'];
+$navbar[1]['URL'] = 'index.php';
+$navbar[2]['Name'] = $L['NAVBAR.STATUS'];
+$navbar[2]['URL'] = 'status.php';
+$navbar[3]['Name'] = $L['NAVBAR.TESTAREA'];
+$navbar[3]['URL'] = 'queries.php';
+$navbar[4]['Name'] = $L['NAVBAR.LOG'];
+$navbar[4]['URL'] = 'log.php';
+
+$navbar[4]['active'] = True;
+
+LBWeb::lbheader($template_title, $helplink, $helptemplate);
+
 $config = json_decode(@file_get_contents($file_config), true);
 if (!is_array($config)) {
     $config = array();
@@ -46,8 +45,6 @@ if (!is_array($config)) {
 if (!isset($config['log_level'])) {
     $config['log_level'] = 'info';
 }
-
-LBWeb::lbheader($template_title, $helplink, $helptemplate);
 
 echo '<img src="logo.png" alt="Easee Home">';
 
@@ -82,13 +79,13 @@ echo '<h2 class="charger-head">Easee API Calls</h2>';
 echo '<small>' . $L['LOGFILES.GROUP_API_DESC'] . '</small>';
 echo LBWeb::loglist_html(array('NAME' => 'Easee API Calls'));
 
-echo '<h2 class="charger-head">Testbereich</h2>';
-echo '<small>' . $L['LOGFILES.GROUP_TEST_DESC'] . '</small>';
-echo LBWeb::loglist_html(array('NAME' => 'Testbereich'));
+//echo '<h2 class="charger-head">Testbereich</h2>';
+//echo '<small>' . $L['LOGFILES.GROUP_TEST_DESC'] . '</small>';
+//echo LBWeb::loglist_html(array('NAME' => 'Testbereich'));
 
-echo '<h2 class="charger-head">Sonstiges</h2>';
-echo '<small>' . $L['LOGFILES.GROUP_OTHER_DESC'] . '</small>';
-echo LBWeb::loglist_html(array('NAME' => 'Sonstiges'));
+//echo '<h2 class="charger-head">Sonstiges</h2>';
+//echo '<small>' . $L['LOGFILES.GROUP_OTHER_DESC'] . '</small>';
+//echo LBWeb::loglist_html(array('NAME' => 'Sonstiges'));
 
 LBWeb::lbfooter();
 ?>

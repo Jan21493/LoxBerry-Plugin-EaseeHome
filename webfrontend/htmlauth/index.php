@@ -1,10 +1,9 @@
 <?php
 require_once "loxberry_system.php";
-require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
-$L = LBWeb::readlanguage("language.ini");
+$L = LBSystem::readlanguage("language.ini");
 $file_token  = easee_get_token_file($lbplogdir);
 $file_config = $lbpconfigdir.'/easee_config.ini';
 $url_base    = 'https://api.easee.com';
@@ -14,10 +13,6 @@ $config_current = json_decode(@file_get_contents($file_config), true);
 if (!is_array($config_current)) {
     $config_current = array();
 }
-$log_level = easee_normalize_log_level(isset($config_current['log_level']) ? $config_current['log_level'] : 'info');
-$log = LBLog::newLog([ "name" => "Sonstiges", "stderr" => 1, "addtime" => 1 ]);
-$log->loglevel(easee_get_loxberry_loglevel($log_level));
-LOGSTART("Start Logging - index.php");
 
 // Token maintenance actions (renew / deactivate) are handled before the config save.
 if ($_POST && isset($_POST['token_action'])) {
@@ -71,7 +66,6 @@ if ($_POST) {
 
     $mqtt_topic = isset($_POST['mqtt_topic']) ? easee_normalize_mqtt_topic($_POST['mqtt_topic']) : $existing_config['mqtt_topic'];
 
-    $log_level = easee_normalize_log_level(isset($_POST['log_level']) ? $_POST['log_level'] : 'info');
     $observation_definitions = easee_get_observation_definitions();
     $observation_ids_selected = isset($_POST['observation_ids_selected']) && is_array($_POST['observation_ids_selected']) ? $_POST['observation_ids_selected'] : array();
     $selected_observation_ids = array();
@@ -109,7 +103,7 @@ if ($_POST) {
         'send_json' => $return_json,
         'send_mqtt' => $return_mqtt,
         'mqtt_topic' => $mqtt_topic,
-        'log_level' => isset($_POST['log_level']) ? $log_level : $existing_config['log_level'],
+        'log_level' => $existing_config['log_level'],
         'observation_ids' => $observation_ids
     );
 
@@ -223,16 +217,16 @@ $template_title = "EaseeHome";
 $helplink = $L['LINKS.WIKI'];
 $helptemplate = "pluginhelp.html";
 
-$navbar[1]['Name'] = $L['NAVBAR.FIRST'];
+$navbar[1]['Name'] = $L['NAVBAR.SETTINGS'];
 $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = $L['NAVBAR.STATUS'];
 $navbar[2]['URL'] = 'status.php';
-$navbar[3]['Name'] = $L['NAVBAR.SECOND'];
-$navbar[3]['URL'] = 'log.php';
-$navbar[4]['Name'] = $L['NAVBAR.THIRD'];
-$navbar[4]['URL'] = 'queries.php';
+$navbar[3]['Name'] = $L['NAVBAR.TESTAREA'];
+$navbar[3]['URL'] = 'queries.php';
+$navbar[4]['Name'] = $L['NAVBAR.LOG'];
+$navbar[4]['URL'] = 'log.php';
 
-// Navbar.
+// Navbar
 $navbar[1]['active'] = true;
 
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
@@ -259,7 +253,6 @@ echo '<p style="margin-bottom: 15px;margin-top: 0;margin-left: 0;margin-right: 0
 
 if (strpos($token_str, 'accessToken') === false) {
     echo '<a style="color:red;">' . $L['MAIN.TOKENERROR'] . '</a><br><br>';
-    log_e($token_str !== '' ? $token_str : 'token file missing or empty', $url_token);
     echo '<p><button type="submit" name="token_action" value="renew" data-inline="true" data-mini="true" data-icon="refresh">' . $L['MAIN.TOKEN_RENEW'] . '</button></p><br>';
 } else {
     echo '<a style="color:green;">' . $L['MAIN.TOKENOK'] . '</a><br><br>';
@@ -278,7 +271,6 @@ if (strpos($token_str, 'accessToken') === false) {
 
         $i++;
     }
-    echo '<small>' . $L['WALLBOX.STATUS_HINT'] . '</small>';
 }
 echo '</fieldset>';
 

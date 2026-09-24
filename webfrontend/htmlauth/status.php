@@ -1,16 +1,11 @@
 <?php
 require_once "loxberry_system.php";
-require_once "loxberry_log.php";
 require_once "loxberry_web.php";
 include $lbphtmldir.'/easee_functions.php';
 
-$L = LBWeb::readlanguage("language.ini");
+$L = LBSystem::readlanguage("language.ini");
 $pluginConfig = json_decode(@file_get_contents($lbpconfigdir . '/easee_config.ini'), true);
 $pluginConfig = is_array($pluginConfig) ? $pluginConfig : array();
-$log_level = easee_normalize_log_level(isset($pluginConfig['log_level']) ? $pluginConfig['log_level'] : 'info');
-$log = LBLog::newLog([ "name" => "Sonstiges", "stderr" => 1, "addtime" => 1 ]);
-$log->loglevel(easee_get_loxberry_loglevel($log_level));
-LOGSTART("Start Logging - status.php");
 
 // This page never queries the Easee Cloud API. All values come from the JSON
 // responses that easee.php cached in the (RAM based) log directory.
@@ -204,14 +199,15 @@ $template_title = "EaseeHome";
 $helplink = $L['LINKS.WIKI'];
 $helptemplate = "pluginhelp.html";
 
-$navbar[1]['Name'] = $L['NAVBAR.FIRST'];
+$navbar[1]['Name'] = $L['NAVBAR.SETTINGS'];
 $navbar[1]['URL'] = 'index.php';
 $navbar[2]['Name'] = $L['NAVBAR.STATUS'];
 $navbar[2]['URL'] = 'status.php';
-$navbar[3]['Name'] = $L['NAVBAR.SECOND'];
-$navbar[3]['URL'] = 'log.php';
-$navbar[4]['Name'] = $L['NAVBAR.THIRD'];
-$navbar[4]['URL'] = 'queries.php';
+$navbar[3]['Name'] = $L['NAVBAR.TESTAREA'];
+$navbar[3]['URL'] = 'queries.php';
+$navbar[4]['Name'] = $L['NAVBAR.LOG'];
+$navbar[4]['URL'] = 'log.php';
+
 $navbar[2]['active'] = True;
 
 LBWeb::lbheader($template_title, $helplink, $helptemplate);
