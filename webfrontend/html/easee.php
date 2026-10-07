@@ -3,6 +3,7 @@
 require_once "loxberry_system.php";
 require_once "loxberry_log.php";
 include 'easee_functions.php';
+require_once __DIR__ . '/easee_log.php';
 
 // Request error reporting and logging configuration
 error_reporting(E_ALL);
@@ -38,33 +39,9 @@ if (!is_array($token)) {
     $token = array();
 }
 
-$log_level = easee_normalize_log_level(isset($config['log_level']) ? $config['log_level'] : 'info');
 $mqtt_topic = easee_normalize_mqtt_topic(isset($config['mqtt_topic']) ? $config['mqtt_topic'] : 'easee');
 
-// Session-based daily logging 
-$daily_filename = $lbplogdir . "/easeeAPIcalls_" . date('Y-m-d') . ".log";
-$log_file_exists = file_exists($daily_filename);
-
-// We create the log object
-$log_args = [
-    "name"     => "Easee API Calls",
-    "filename" => $daily_filename,
-    "addtime"  => 1
-];
-if ($log_file_exists) {
-    $log_args["append"] = 1; // Only append if the file already exists
-}
-
-// Create a new daily log object
-$my_logger = LBLog::newLog($log_args);
-$my_logger->loglevel(easee_get_loxberry_loglevel($log_level));
-$GLOBALS['stdLog'] = $my_logger;
-
-// LOGSTART may only be executed directly once a day
-if (!$log_file_exists) {
-    // If the file is new, we call the original LOGSTART
-    LOGSTART("easee.php: API calls for " . date('Y-m-d'));
-}
+$my_logger = easee_start_log($lbplogdir, $lbpplugindir);
 
 $request_context = array(
     'do' => $do,

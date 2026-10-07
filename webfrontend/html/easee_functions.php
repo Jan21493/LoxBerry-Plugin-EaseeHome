@@ -449,30 +449,6 @@ function change_booleans_to_numbers($data)
     return $data;
 }
 
-// Normalize configured log level.
-function easee_normalize_log_level($level)
-{
-    $allowed = array('error', 'warn', 'info', 'debug');
-    $normalized = strtolower(trim((string)$level));
-    if (!in_array($normalized, $allowed, true)) {
-        return 'info';
-    }
-    return $normalized;
-}
-
-// Map Easee log levels to LoxBerry log levels.
-function easee_get_loxberry_loglevel($level)
-{
-    $levels = array(
-        'error' => 3,
-        'warn' => 4,
-        'info' => 6,
-        'debug' => 7
-    );
-    $level = easee_normalize_log_level($level);
-    return $levels[$level];
-}
-
 // Append context data to a log message.
 function easee_format_log_message($message, $context = array())
 {
