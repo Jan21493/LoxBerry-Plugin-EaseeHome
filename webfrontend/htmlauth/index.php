@@ -56,9 +56,6 @@ if ($_POST) {
     if (!isset($existing_config['send_udp'])) {
         $existing_config['send_udp'] = '0';
     }
-    if (!isset($existing_config['log_level'])) {
-        $existing_config['log_level'] = 'info';
-    }
 
     $return_json = isset($_POST['return_json']) ? (($_POST['return_json'] === 'on') ? '1' : '0') : '0';
     $return_mqtt = isset($_POST['return_mqtt']) ? (($_POST['return_mqtt'] === 'on') ? '1' : '0') : '0';
@@ -103,7 +100,6 @@ if ($_POST) {
         'send_json' => $return_json,
         'send_mqtt' => $return_mqtt,
         'mqtt_topic' => $mqtt_topic,
-        'log_level' => $existing_config['log_level'],
         'observation_ids' => $observation_ids
     );
 
@@ -149,9 +145,6 @@ if (!isset($config['send_json'])) {
 }
 if (!isset($config['send_udp'])) {
     $config['send_udp'] = '0';
-}
-if (!isset($config['log_level'])) {
-    $config['log_level'] = 'info';
 }
 if (!isset($config['observation_ids'])) {
     $config['observation_ids'] = '';
